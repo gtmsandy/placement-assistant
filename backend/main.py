@@ -1,0 +1,62 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from database import Base
+from database import engine
+
+from routers import applications
+from routers import drives
+from routers import students
+
+import models
+
+
+Base.metadata.create_all(
+    bind=engine
+)
+
+
+app = FastAPI(
+    title="Campus Placement Assistant API"
+)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:4173",
+        "http://127.0.0.1:4173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+app.include_router(
+    students.router
+)
+
+app.include_router(
+    drives.router
+)
+
+app.include_router(
+    applications.router
+)
+
+
+@app.get("/")
+def root():
+    return {
+        "message": "Campus Placement Assistant API is running"
+    }
+
+
+@app.get("/api/health")
+def health():
+    return {
+        "status": "ok"
+    }
