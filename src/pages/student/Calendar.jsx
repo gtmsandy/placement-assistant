@@ -24,18 +24,17 @@ function Calendar() {
           drive
         )
 
-        if (!eligibility.eligible) {
-          return
-        }
-
         if (drive.deadline) {
           result.push({
             id: `${drive.id}-deadline`,
             driveId: drive.id,
+            company: drive.companyName,
             type: 'Registration Deadline',
             title: `${drive.companyName} Registration Deadline`,
             date: drive.deadline,
             icon: '📝',
+            eligible: eligibility.eligible,
+            reasons: eligibility.reasons || [],
           })
         }
 
@@ -43,10 +42,13 @@ function Calendar() {
           result.push({
             id: `${drive.id}-ppt`,
             driveId: drive.id,
+            company: drive.companyName,
             type: 'PPT',
             title: `${drive.companyName} Pre-Placement Talk`,
             date: drive.ppt,
             icon: '🎤',
+            eligible: eligibility.eligible,
+            reasons: eligibility.reasons || [],
           })
         }
 
@@ -54,10 +56,13 @@ function Calendar() {
           result.push({
             id: `${drive.id}-ot`,
             driveId: drive.id,
+            company: drive.companyName,
             type: 'Online Test',
             title: `${drive.companyName} Online Test`,
             date: drive.ot,
             icon: '💻',
+            eligible: eligibility.eligible,
+            reasons: eligibility.reasons || [],
           })
         }
 
@@ -65,10 +70,13 @@ function Calendar() {
           result.push({
             id: `${drive.id}-interview`,
             driveId: drive.id,
+            company: drive.companyName,
             type: 'Interview',
             title: `${drive.companyName} Interview`,
             date: drive.interview,
             icon: '👔',
+            eligible: eligibility.eligible,
+            reasons: eligibility.reasons || [],
           })
         }
       })
@@ -155,7 +163,7 @@ function Calendar() {
               </h1>
 
               <p className="mt-1 text-sm text-slate-500">
-                Keep track of your placement deadlines and recruitment events.
+                Keep track of all placement deadlines and recruitment events.
               </p>
 
             </div>
@@ -230,7 +238,8 @@ function Calendar() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              Events for placement opportunities you are eligible for.
+              All published placement events are shown here.
+              Eligibility only affects whether you can apply.
             </p>
 
           </div>
@@ -244,8 +253,8 @@ function Calendar() {
               </p>
 
               <p className="mt-2 text-sm text-slate-500">
-                There are currently no scheduled events for
-                opportunities you are eligible for.
+                Events will appear here when placement
+                drives are scheduled.
               </p>
 
             </div>
@@ -267,7 +276,7 @@ function Calendar() {
                       {event.icon}
                     </div>
 
-                    <div>
+                    <div className="flex-1">
 
                       <div className="flex flex-wrap items-center gap-2">
 
@@ -288,6 +297,34 @@ function Calendar() {
                       <p className="mt-2 text-sm text-slate-500">
                         {formatDate(event.date)}
                       </p>
+
+                      {/* Eligibility status */}
+
+                      {event.eligible ? (
+
+                        <span className="mt-2 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                          ✓ You are eligible
+                        </span>
+
+                      ) : (
+
+                        <div className="mt-2">
+
+                          <span className="inline-block rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                            ✕ You are not eligible
+                          </span>
+
+                          {event.reasons.length > 0 && (
+
+                            <p className="mt-2 text-xs text-red-600">
+                              {event.reasons[0]}
+                            </p>
+
+                          )}
+
+                        </div>
+
+                      )}
 
                     </div>
 

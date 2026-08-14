@@ -14,14 +14,18 @@ const defaultSettings = {
 
 function getStoredSettings() {
   try {
-    const storedSettings = localStorage.getItem(
-      'placement_reminder_settings'
-    )
+    const storedSettings =
+      localStorage.getItem('placement_reminder_settings')
 
     return storedSettings
       ? JSON.parse(storedSettings)
       : defaultSettings
-  } catch {
+  } catch (error) {
+    console.error(
+      'Failed to load reminder settings:',
+      error
+    )
+
     return defaultSettings
   }
 }

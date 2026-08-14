@@ -5,141 +5,292 @@ import {
   useState,
 } from 'react'
 
-const PlacementContext = createContext()
+import {
+  getDrives,
+  createDrive,
+} from '../services/api'
 
-const initialDrives = [
-  {
-    id: 'abc-technologies',
-    companyName: 'ABC Technologies',
-    role: 'Software Engineer',
-    ctc: '₹12 LPA',
-    location: 'Bangalore',
 
-    minCgpa: 7,
-    minTenth: 60,
-    minTwelfth: 60,
-    maxBacklogs: 0,
-    branches: 'CSE, IT, ECE',
-    gender: 'Any',
-    graduationYear: '2027',
+const PlacementContext =
+  createContext()
 
-    deadline: '2026-08-20T23:59',
-    ppt: '2026-08-16T16:00',
-    ot: '2026-08-22T10:00',
-    interview: '2026-08-25T11:00',
 
-    registrationLink: '',
-    jd: null,
+function mapDriveFromApi(
+  drive
+) {
+  return {
+    id:
+      drive.id,
 
-    status: 'Published',
-  },
-]
+    companyName:
+      drive.company_name || '',
 
-function getStoredDrives() {
-  try {
-    const storedDrives =
-      localStorage.getItem('placement_drives')
+    role:
+      drive.role || '',
 
-    if (storedDrives) {
-      return JSON.parse(storedDrives)
-    }
+    ctc:
+      drive.ctc || '',
 
-    return initialDrives
-  } catch (error) {
-    console.error(
-      'Failed to load placement drives:',
-      error
-    )
+    location:
+      drive.location || '',
 
-    return initialDrives
+    minCgpa:
+      drive.min_cgpa ?? '',
+
+    minTenth:
+      drive.min_tenth ?? '',
+
+    minTwelfth:
+      drive.min_twelfth ?? '',
+
+    maxBacklogs:
+      drive.max_backlogs ?? 0,
+
+    branches:
+      drive.branches || '',
+
+    gender:
+      drive.gender || 'Any',
+
+    graduationYear:
+      drive.graduation_year
+        ? String(
+            drive.graduation_year
+          )
+        : '',
+
+    resumeShortlisting:
+      Boolean(
+        drive.resume_shortlisting
+      ),
+
+    deadline:
+      drive.deadline || '',
+
+    ppt:
+      drive.ppt || '',
+
+    ot:
+      drive.online_test || '',
+
+    interview:
+      drive.interview || '',
+
+    registrationLink:
+      drive.registration_link ||
+      '',
+
+    jd:
+      drive.jd || '',
+
+    status:
+      drive.status ||
+      'Published',
   }
 }
 
-export function PlacementProvider({ children }) {
-  const [drives, setDrives] = useState(
-    getStoredDrives
-  )
+
+function mapDriveToApi(
+  drive
+) {
+  return {
+    company_name:
+      drive.companyName || '',
+
+    role:
+      drive.role || '',
+
+    ctc:
+      drive.ctc || '',
+
+    location:
+      drive.location || '',
+
+    min_cgpa:
+      Number(
+        drive.minCgpa
+      ) || 0,
+
+    min_tenth:
+      Number(
+        drive.minTenth
+      ) || 0,
+
+    min_twelfth:
+      Number(
+        drive.minTwelfth
+      ) || 0,
+
+    max_backlogs:
+      Number(
+        drive.maxBacklogs
+      ) || 0,
+
+    branches:
+      drive.branches || '',
+
+    gender:
+      drive.gender || 'Any',
+
+    graduation_year:
+      Number(
+        drive.graduationYear
+      ) || 0,
+
+    resume_shortlisting:
+      Boolean(
+        drive.resumeShortlisting
+      ),
+
+    deadline:
+      drive.deadline ||
+      null,
+
+    ppt:
+      drive.ppt ||
+      null,
+
+    online_test:
+      drive.ot ||
+      null,
+
+    interview:
+      drive.interview ||
+      null,
+
+    registration_link:
+      drive.registrationLink ||
+      '',
+
+    /*
+      The backend currently stores
+      JD as text.
+
+      If jd is a File object,
+      only the filename is sent.
+    */
+    jd:
+      typeof drive.jd ===
+      'string'
+        ? drive.jd
+        : drive.jd?.name || '',
+
+    status:
+      drive.status ||
+      'Published',
+  }
+}
+
+
+export function PlacementProvider({
+  children,
+}) {
+  const [drives, setDrives] =
+    useState([])
+
+  const [loading, setLoading] =
+    useState(true)
+
+  const [error, setError] =
+    useState(null)
+
 
   useEffect(() => {
-    localStorage.setItem(
-      'placement_drives',
-      JSON.stringify(drives)
-    )
-  }, [drives])
+    async function loadDrives() {
+      try {
+        setLoading(true)
+        setError(null)
 
-  const addDrive = (drive) => {
-    const newDrive = {
-      ...drive,
+        const apiDrives =
+          await getDrives()
 
-      id: Date.now().toString(),
+        console.log(
+          'Placement drives loaded:',
+          apiDrives
+        )
 
-      companyName:
-        drive.companyName || '',
+        const mappedDrives =
+          apiDrives.map(
+            mapDriveFromApi
+          )
 
-      role:
-        drive.role || '',
+        setDrives(
+          mappedDrives
+        )
 
-      ctc:
-        drive.ctc || '',
+      } catch (error) {
+        console.error(
+          'Failed to load placement drives:',
+          error
+        )
 
-      location:
-        drive.location || '',
+        setError(
+          error.message ||
+            'Failed to load placement drives'
+        )
 
-      minCgpa:
-        drive.minCgpa ?? '',
-
-      minTenth:
-        drive.minTenth ?? '',
-
-      minTwelfth:
-        drive.minTwelfth ?? '',
-
-      maxBacklogs:
-        drive.maxBacklogs ?? '',
-
-      branches:
-        drive.branches || '',
-
-      gender:
-        drive.gender || 'Any',
-
-      graduationYear:
-        drive.graduationYear || '',
-
-      deadline:
-        drive.deadline || '',
-
-      ppt:
-        drive.ppt || '',
-
-      ot:
-        drive.ot || '',
-
-      interview:
-        drive.interview || '',
-
-      registrationLink:
-        drive.registrationLink || '',
-
-      jd:
-        drive.jd || null,
-
-      status: 'Published',
+      } finally {
+        setLoading(false)
+      }
     }
 
-    setDrives((previous) => [
-      ...previous,
-      newDrive,
-    ])
+    loadDrives()
+  }, [])
 
-    return newDrive
-  }
+
+  const addDrive =
+    async (drive) => {
+      try {
+        const apiDrive =
+          mapDriveToApi(drive)
+
+        console.log(
+          'Publishing drive:',
+          apiDrive
+        )
+
+        const createdDrive =
+          await createDrive(
+            apiDrive
+          )
+
+        console.log(
+          'Drive created successfully:',
+          createdDrive
+        )
+
+        const mappedDrive =
+          mapDriveFromApi(
+            createdDrive
+          )
+
+        setDrives(
+          (previous) => [
+            ...previous,
+            mappedDrive,
+          ]
+        )
+
+        return mappedDrive
+
+      } catch (error) {
+        console.error(
+          'Failed to create placement drive:',
+          error
+        )
+
+        throw error
+      }
+    }
+
 
   return (
     <PlacementContext.Provider
       value={{
         drives,
         addDrive,
+        loading,
+        error,
       }}
     >
       {children}
@@ -147,6 +298,9 @@ export function PlacementProvider({ children }) {
   )
 }
 
+
 export function usePlacements() {
-  return useContext(PlacementContext)
+  return useContext(
+    PlacementContext
+  )
 }

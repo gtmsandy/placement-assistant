@@ -12,6 +12,8 @@ import ReminderSettings from './pages/student/ReminderSettings'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import CreateDrive from './pages/admin/CreateDrive'
 import DrivePreview from './pages/admin/DrivePreview'
+import AdminDriveDetails from './pages/admin/AdminDriveDetails'
+import EditDrive from './pages/admin/EditDrive'
 import ApplicationsManagement from './pages/admin/ApplicationsManagement'
 
 import { PlacementProvider } from './context/PlacementContext'
@@ -30,10 +32,14 @@ function App() {
 
               <Routes>
 
+                {/* Login */}
+
                 <Route
                   path="/"
                   element={<Login />}
                 />
+
+                {/* Student */}
 
                 <Route
                   path="/student"
@@ -65,6 +71,8 @@ function App() {
                   element={<OpportunityDetails />}
                 />
 
+                {/* Admin */}
+
                 <Route
                   path="/admin"
                   element={<AdminDashboard />}
@@ -79,6 +87,22 @@ function App() {
                   path="/admin/drive-preview"
                   element={<DrivePreview />}
                 />
+
+                {/* Admin Drive Details */}
+
+                <Route
+                  path="/admin/drive/:id"
+                  element={<AdminDriveDetails />}
+                />
+
+                {/* Admin Edit Drive */}
+
+                <Route
+                  path="/admin/edit-drive/:id"
+                  element={<EditDrive />}
+                />
+
+                {/* Admin Applications */}
 
                 <Route
                   path="/admin/applications"

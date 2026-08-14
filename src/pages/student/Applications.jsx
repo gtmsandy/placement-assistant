@@ -1,19 +1,59 @@
 import { useNavigate } from 'react-router-dom'
 import { useApplications } from '../../context/ApplicationContext'
+import { usePlacements } from '../../context/PlacementContext'
 import ApplicationStatus from '../../components/ApplicationStatus'
 
 function Applications() {
   const navigate = useNavigate()
-  const { applications } = useApplications()
+
+  const {
+    applications,
+    loading,
+    error,
+  } = useApplications()
+
+  const { drives } = usePlacements()
+
+  const getDrive = (driveId) => {
+    return drives.find(
+      (drive) =>
+        String(drive.id) ===
+        String(driveId)
+    )
+  }
+
+  const formatDate = (date) => {
+    if (!date) {
+      return 'Date not available'
+    }
+
+    const parsedDate = new Date(date)
+
+    if (Number.isNaN(parsedDate.getTime())) {
+      return date
+    }
+
+    return parsedDate.toLocaleDateString(
+      'en-IN',
+      {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
 
       <header className="border-b border-slate-200 bg-white px-5 py-5">
+
         <div className="mx-auto max-w-5xl">
 
           <button
-            onClick={() => navigate('/student')}
+            onClick={() =>
+              navigate('/student')
+            }
             className="text-sm font-medium text-blue-600"
           >
             ← Back to Dashboard
@@ -28,11 +68,40 @@ function Applications() {
           </p>
 
         </div>
+
       </header>
 
       <main className="mx-auto max-w-5xl px-5 py-8">
 
-        {applications.length === 0 ? (
+        {loading ? (
+
+          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+
+            <p className="text-lg font-semibold text-slate-900">
+              Loading applications...
+            </p>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Fetching your applications from the placement server.
+            </p>
+
+          </div>
+
+        ) : error ? (
+
+          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
+
+            <p className="text-lg font-semibold text-red-600">
+              Unable to load applications
+            </p>
+
+            <p className="mt-2 text-sm text-slate-500">
+              {error}
+            </p>
+
+          </div>
+
+        ) : applications.length === 0 ? (
 
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
 
@@ -45,7 +114,9 @@ function Applications() {
             </p>
 
             <button
-              onClick={() => navigate('/student')}
+              onClick={() =>
+                navigate('/student')
+              }
               className="mt-5 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Browse Opportunities
@@ -57,98 +128,118 @@ function Applications() {
 
           <div className="space-y-5">
 
-            {applications.map((application) => (
+            {applications.map(
+              (application) => {
 
-              <div
-                key={application.id}
-                className="rounded-2xl bg-white p-5 shadow-sm"
-              >
+                const drive = getDrive(
+                  application.drive_id
+                )
 
-                {/* Company information */}
+                return (
+                  <div
+                    key={application.id}
+                    className="rounded-2xl bg-white p-5 shadow-sm"
+                  >
 
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    {/* Company information */}
 
-                  <div>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-                    <h2 className="text-lg font-bold text-slate-900">
-                      {application.companyName}
-                    </h2>
+                      <div>
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      {application.role}
-                    </p>
+                        <h2 className="text-lg font-bold text-slate-900">
+                          {drive?.companyName ||
+                            'Company'}
+                        </h2>
 
-                    <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
+                        <p className="mt-1 text-sm text-slate-500">
+                          {drive?.role ||
+                            'Role not available'}
+                        </p>
 
-                      {application.ctc && (
-                        <span>
-                          {application.ctc}
+                        <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
+
+                          {drive?.ctc && (
+                            <span>
+                              {drive.ctc}
+                            </span>
+                          )}
+
+                          {drive?.location && (
+                            <span>
+                              📍 {drive.location}
+                            </span>
+                          )}
+
+                        </div>
+
+                      </div>
+
+                      {/* Current status */}
+
+                      <div className="text-left sm:text-right">
+
+                        <span
+                          className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
+                            application.status ===
+                            'Selected'
+                              ? 'bg-green-100 text-green-700'
+                              : application.status ===
+                                'Rejected'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-blue-100 text-blue-700'
+                          }`}
+                        >
+                          {application.status}
                         </span>
-                      )}
 
-                      {application.location && (
-                        <span>
-                          📍 {application.location}
-                        </span>
-                      )}
+                        <p className="mt-2 text-xs text-slate-400">
+
+                          Applied{' '}
+
+                          {formatDate(
+                            application.applied_at
+                          )}
+
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    {/* Application progress */}
+
+                    <div className="mt-5">
+
+                      <ApplicationStatus
+                        status={
+                          application.status
+                        }
+                      />
+
+                    </div>
+
+                    {/* View opportunity */}
+
+                    <div className="mt-5 border-t border-slate-100 pt-4">
+
+                      <button
+                        onClick={() =>
+                          navigate(
+                            `/student/opportunity/${application.drive_id}`
+                          )
+                        }
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                      >
+                        View Opportunity →
+                      </button>
 
                     </div>
 
                   </div>
-
-                  {/* Current status */}
-
-                  <div className="text-left sm:text-right">
-
-                    <span
-                      className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                        application.status === 'Selected'
-                          ? 'bg-green-100 text-green-700'
-                          : application.status === 'Rejected'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-blue-100 text-blue-700'
-                      }`}
-                    >
-                      {application.status}
-                    </span>
-
-                    <p className="mt-2 text-xs text-slate-400">
-                      Applied{' '}
-                      {new Date(
-                        application.appliedAt
-                      ).toLocaleDateString('en-IN')}
-                    </p>
-
-                  </div>
-
-                </div>
-
-                {/* Application progress */}
-
-                <ApplicationStatus
-                  status={application.status}
-                />
-
-                {/* View opportunity */}
-
-                <div className="mt-5 border-t border-slate-100 pt-4">
-
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/student/opportunity/${application.driveId}`
-                      )
-                    }
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                  >
-                    View Opportunity →
-                  </button>
-
-                </div>
-
-              </div>
-
-            ))}
+                )
+              }
+            )}
 
           </div>
 

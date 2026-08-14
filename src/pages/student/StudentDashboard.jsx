@@ -11,6 +11,7 @@ function StudentDashboard() {
   const { student } = useStudent()
   const { applications } = useApplications()
 
+
   const formatDate = (date) => {
     if (!date) {
       return 'Not specified'
@@ -57,12 +58,9 @@ function StudentDashboard() {
   const upcomingEvents = opportunities
     .filter(
       (opportunity) =>
-        opportunity.eligibility.eligible &&
-        (
-          opportunity.ppt ||
-          opportunity.ot ||
-          opportunity.interview
-        )
+        opportunity.ppt ||
+        opportunity.ot ||
+        opportunity.interview
     )
     .flatMap((opportunity) => {
       const events = []
@@ -75,6 +73,8 @@ function StudentDashboard() {
           type: 'Pre-Placement Talk',
           date: opportunity.ppt,
           icon: '📅',
+          eligible:
+            opportunity.eligibility.eligible,
         })
       }
 
@@ -86,6 +86,8 @@ function StudentDashboard() {
           type: 'Online Test',
           date: opportunity.ot,
           icon: '💻',
+          eligible:
+            opportunity.eligibility.eligible,
         })
       }
 
@@ -97,6 +99,8 @@ function StudentDashboard() {
           type: 'Interview',
           date: opportunity.interview,
           icon: '🎯',
+          eligible:
+            opportunity.eligibility.eligible,
         })
       }
 
@@ -110,8 +114,6 @@ function StudentDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
 
-      {/* Header */}
-
       <header className="bg-white px-5 py-6 shadow-sm">
 
         <div className="mx-auto flex max-w-5xl items-start justify-between">
@@ -123,7 +125,10 @@ function StudentDashboard() {
             </p>
 
             <h1 className="mt-1 text-2xl font-bold text-slate-900">
-              {student.name || student.fullName || 'Student'} 👋
+              {student.name ||
+                student.fullName ||
+                'Student'}{' '}
+              👋
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
@@ -146,8 +151,6 @@ function StudentDashboard() {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-6 px-5 py-6">
-
-        {/* Summary */}
 
         <section className="grid grid-cols-2 gap-4">
 
@@ -185,8 +188,6 @@ function StudentDashboard() {
 
         </section>
 
-        {/* Placement Opportunities */}
-
         <section>
 
           <div className="mb-4 flex items-center justify-between">
@@ -196,7 +197,7 @@ function StudentDashboard() {
             </h2>
 
             <span className="text-sm text-slate-500">
-              {eligibleOpportunities.length} eligible
+              {opportunities.length} available
             </span>
 
           </div>
@@ -212,8 +213,8 @@ function StudentDashboard() {
                 </p>
 
                 <p className="mt-2 text-sm text-slate-500">
-                  New opportunities will appear here when the
-                  placement cell publishes them.
+                  New opportunities will appear here
+                  when the placement cell publishes them.
                 </p>
 
               </div>
@@ -226,8 +227,6 @@ function StudentDashboard() {
                   key={opportunity.id}
                   className="rounded-2xl bg-white p-5 shadow-sm"
                 >
-
-                  {/* Company */}
 
                   <div className="flex items-start justify-between gap-4">
 
@@ -259,8 +258,6 @@ function StudentDashboard() {
 
                   </div>
 
-                  {/* Job information */}
-
                   <div className="mt-4">
 
                     <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -271,9 +268,11 @@ function StudentDashboard() {
                       </p>
 
                       {opportunity.location && (
+
                         <p className="text-xs text-slate-500">
                           📍 {opportunity.location}
                         </p>
+
                       )}
 
                     </div>
@@ -290,8 +289,6 @@ function StudentDashboard() {
                     )}
 
                   </div>
-
-                  {/* Eligibility reasons */}
 
                   {!opportunity.eligibility.eligible && (
 
@@ -321,22 +318,16 @@ function StudentDashboard() {
 
                   )}
 
-                  {/* Action */}
-
-                  {opportunity.eligibility.eligible && (
-
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/student/opportunity/${opportunity.id}`
-                        )
-                      }
-                      className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                    >
-                      View Opportunity
-                    </button>
-
-                  )}
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/student/opportunity/${opportunity.id}`
+                      )
+                    }
+                    className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                  >
+                    View Opportunity
+                  </button>
 
                 </div>
 
@@ -347,8 +338,6 @@ function StudentDashboard() {
           </div>
 
         </section>
-
-        {/* Upcoming */}
 
         <section>
 
@@ -396,10 +385,28 @@ function StudentDashboard() {
 
                       <div>
 
-                        <p className="font-semibold text-slate-900">
-                          {event.company}{' '}
-                          {event.type}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+
+                          <p className="font-semibold text-slate-900">
+                            {event.company}{' '}
+                            {event.type}
+                          </p>
+
+                          {event.eligible ? (
+
+                            <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
+                              Eligible
+                            </span>
+
+                          ) : (
+
+                            <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
+                              Not Eligible
+                            </span>
+
+                          )}
+
+                        </div>
 
                         <p className="mt-1 text-sm text-slate-500">
                           {formatDate(event.date)}
@@ -435,8 +442,6 @@ function StudentDashboard() {
         </section>
 
       </main>
-
-      {/* Bottom Navigation */}
 
       <nav className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white">
 

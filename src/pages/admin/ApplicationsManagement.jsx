@@ -1,101 +1,159 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useApplications } from '../../context/ApplicationContext'
+
+const API_BASE_URL = 'http://127.0.0.1:8000'
 
 function ApplicationsManagement() {
   const navigate = useNavigate()
 
-  const {
-    applications,
-    updateApplicationStatus,
-  } = useApplications()
+  const [applications, setApplications] = useState([])
+  const [drives, setDrives] = useState([])
+  const [students, setStudents] = useState([])
 
-  const [search, setSearch] = useState('')
-  const [companyFilter, setCompanyFilter] = useState('ALL')
-  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [loading, setLoading] = useState(true)
+  const [updatingId, setUpdatingId] = useState(null)
+  const [error, setError] = useState('')
 
-  const companies = useMemo(() => {
-    const uniqueCompanies = [
-      ...new Set(
-        applications
-          .map((application) => application.companyName)
-          .filter(Boolean)
-      ),
-    ]
+  useEffect(() => {
+    loadData()
+  }, [])
 
-    return uniqueCompanies
-  }, [applications])
+  const loadData = async () => {
+    try {
+      setLoading(true)
+      setError('')
 
-  const filteredApplications = useMemo(() => {
-    const searchText = search.trim().toLowerCase()
+      const [
+        applicationsResponse,
+        drivesResponse,
+        studentsResponse,
+      ] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/applications/`),
+        fetch(`${API_BASE_URL}/api/drives/`),
+        fetch(`${API_BASE_URL}/api/students/`),
+      ])
 
-    return applications.filter((application) => {
-      const studentName = String(
-        application.studentName || ''
-      ).toLowerCase()
+      if (
+        !applicationsResponse.ok ||
+        !drivesResponse.ok ||
+        !studentsResponse.ok
+      ) {
+        throw new Error(
+          'Failed to load application data'
+        )
+      }
 
-      const rollNumber = String(
-        application.rollNumber || ''
-      ).toLowerCase()
+      const applicationsData =
+        await applicationsResponse.json()
 
-      const collegeEmail = String(
-        application.collegeEmail || ''
-      ).toLowerCase()
+      const drivesData =
+        await drivesResponse.json()
 
-      const companyName = String(
-        application.companyName || ''
-      ).toLowerCase()
+      const studentsData =
+        await studentsResponse.json()
 
-      const branch = String(
-        application.branch || ''
-      ).toLowerCase()
-
-      const applicationStatus = String(
-        application.status || ''
-      ).trim()
-
-      const matchesSearch =
-        searchText === '' ||
-        studentName.includes(searchText) ||
-        rollNumber.includes(searchText) ||
-        collegeEmail.includes(searchText) ||
-        companyName.includes(searchText) ||
-        branch.includes(searchText)
-
-      const matchesCompany =
-        companyFilter === 'ALL' ||
-        application.companyName === companyFilter
-
-      const matchesStatus =
-        statusFilter === 'ALL' ||
-        applicationStatus === statusFilter
-
-      return (
-        matchesSearch &&
-        matchesCompany &&
-        matchesStatus
+      setApplications(applicationsData)
+      setDrives(drivesData)
+      setStudents(studentsData)
+    } catch (error) {
+      console.error(
+        'Failed to load applications:',
+        error
       )
-    })
-  }, [
-    applications,
-    search,
-    companyFilter,
-    statusFilter,
-  ])
 
-  const clearFilters = () => {
-    setSearch('')
-    setCompanyFilter('ALL')
-    setStatusFilter('ALL')
+      setError(
+        error.message ||
+          'Failed to load applications'
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const selectedCount = applications.filter(
-    (application) =>
-      String(application.status || '').trim() === 'Selected'
-  ).length
+  const getStudent = (studentId) => {
+    return students.find(
+      (student) =>
+        student.id === studentId
+    )
+  }
+
+  const getDrive = (driveId) => {
+    return drives.find(
+      (drive) =>
+        drive.id === driveId
+    )
+  }
+
+  const getStatusStyle = (status) => {
+    if (status === 'Selected') {
+      return 'bg-green-100 text-green-700'
+    }
+
+    if (status === 'Rejected') {
+      return 'bg-red-100 text-red-700'
+    }
+
+    if (status === 'Shortlisted') {
+      return 'bg-purple-100 text-purple-700'
+    }
+
+    return 'bg-blue-100 text-blue-700'
+  }
+
+  const updateStatus = async (
+    applicationId,
+    newStatus
+  ) => {
+    try {
+      setUpdatingId(applicationId)
+      setError('')
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/applications/${applicationId}?status=${encodeURIComponent(
+          newStatus
+        )}`,
+        {
+          method: 'PATCH',
+        }
+      )
+
+      const data =
+        await response.json()
+
+      if (!response.ok) {
+        throw new Error(
+          data.detail ||
+            'Failed to update application status'
+        )
+      }
+
+      setApplications(
+        (previousApplications) =>
+          previousApplications.map(
+            (application) =>
+              application.id ===
+              applicationId
+                ? data
+                : application
+          )
+      )
+    } catch (error) {
+      console.error(
+        'Failed to update application:',
+        error
+      )
+
+      setError(
+        error.message ||
+          'Failed to update application status'
+      )
+    } finally {
+      setUpdatingId(null)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 pb-10">
 
       {/* Header */}
 
@@ -104,193 +162,61 @@ function ApplicationsManagement() {
         <div className="mx-auto max-w-6xl">
 
           <button
-            onClick={() => navigate('/admin')}
+            onClick={() =>
+              navigate('/admin')
+            }
             className="text-sm font-medium text-blue-600"
           >
-            ← Back to Dashboard
+            ← Back to Admin Dashboard
           </button>
 
-          <p className="mt-4 text-sm text-slate-500">
-            Placement Cell
-          </p>
-
-          <h1 className="text-2xl font-bold text-slate-900">
-            Application Management
+          <h1 className="mt-4 text-2xl font-bold text-slate-900">
+            Student Applications
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
-            Manage student applications and recruitment status.
+            Review and manage student placement applications.
           </p>
 
         </div>
 
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-5 py-8">
+      <main className="mx-auto max-w-6xl px-5 py-8">
 
-        {/* Summary */}
+        {/* Error */}
 
-        <section className="grid gap-4 sm:grid-cols-3">
+        {error && (
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+
+            <p className="font-semibold text-red-700">
+              Error
+            </p>
+
+            <p className="mt-1 text-sm text-red-600">
+              {error}
+            </p>
+
+          </div>
+
+        )}
+
+        {/* Loading */}
+
+        {loading ? (
+
+          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
 
             <p className="text-sm text-slate-500">
-              Total Applications
-            </p>
-
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {applications.length}
+              Loading applications...
             </p>
 
           </div>
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
+        ) : applications.length === 0 ? (
 
-            <p className="text-sm text-slate-500">
-              Selected
-            </p>
-
-            <p className="mt-2 text-3xl font-bold text-green-600">
-              {selectedCount}
-            </p>
-
-          </div>
-
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
-
-            <p className="text-sm text-slate-500">
-              Showing
-            </p>
-
-            <p className="mt-2 text-3xl font-bold text-blue-600">
-              {filteredApplications.length}
-            </p>
-
-          </div>
-
-        </section>
-
-        {/* Filters */}
-
-        <section className="rounded-2xl bg-white p-5 shadow-sm">
-
-          <div className="grid gap-4 md:grid-cols-3">
-
-            {/* Search */}
-
-            <div>
-
-              <label className="text-xs font-semibold text-slate-500">
-                Search
-              </label>
-
-              <input
-                type="text"
-                value={search}
-                onChange={(event) =>
-                  setSearch(event.target.value)
-                }
-                placeholder="Name, roll no, email, company..."
-                className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              />
-
-            </div>
-
-            {/* Company */}
-
-            <div>
-
-              <label className="text-xs font-semibold text-slate-500">
-                Company
-              </label>
-
-              <select
-                value={companyFilter}
-                onChange={(event) =>
-                  setCompanyFilter(event.target.value)
-                }
-                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-
-                <option value="ALL">
-                  All
-                </option>
-
-                {companies.map((company) => (
-                  <option
-                    key={company}
-                    value={company}
-                  >
-                    {company}
-                  </option>
-                ))}
-
-              </select>
-
-            </div>
-
-            {/* Status */}
-
-            <div>
-
-              <label className="text-xs font-semibold text-slate-500">
-                Status
-              </label>
-
-              <select
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(event.target.value)
-                }
-                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-              >
-
-                <option value="ALL">
-                  All Statuses
-                </option>
-
-                <option value="Applied">
-                  Applied
-                </option>
-
-                <option value="PPT">
-                  PPT
-                </option>
-
-                <option value="Online Test">
-                  Online Test
-                </option>
-
-                <option value="Interview">
-                  Interview
-                </option>
-
-                <option value="Selected">
-                  Selected
-                </option>
-
-                <option value="Rejected">
-                  Rejected
-                </option>
-
-              </select>
-
-            </div>
-
-          </div>
-
-          <button
-            onClick={clearFilters}
-            className="mt-4 text-sm font-semibold text-blue-600 hover:text-blue-700"
-          >
-            Clear Filters
-          </button>
-
-        </section>
-
-        {/* Applications */}
-
-        {applications.length === 0 ? (
+          /* Empty state */
 
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
 
@@ -299,189 +225,250 @@ function ApplicationsManagement() {
             </p>
 
             <p className="mt-2 text-sm text-slate-500">
-              Student applications will appear here after students apply.
+              Student applications will appear here when students apply.
             </p>
-
-          </div>
-
-        ) : filteredApplications.length === 0 ? (
-
-          <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
-
-            <p className="text-lg font-semibold text-slate-900">
-              No matching applications
-            </p>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Try changing your search or filters.
-            </p>
-
-            <button
-              onClick={clearFilters}
-              className="mt-5 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              Reset Filters
-            </button>
 
           </div>
 
         ) : (
 
-          <div className="space-y-4">
+          /* Applications */
 
-            {filteredApplications.map((application) => (
+          <div className="space-y-5">
 
-              <div
-                key={application.id}
-                className="rounded-2xl bg-white p-6 shadow-sm"
-              >
+            {applications.map(
+              (application) => {
 
-                <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                const student =
+                  getStudent(
+                    application.student_id
+                  )
 
-                  {/* Student Information */}
+                const drive =
+                  getDrive(
+                    application.drive_id
+                  )
 
-                  <div className="min-w-0">
+                return (
 
-                    <div className="flex flex-wrap items-center gap-3">
+                  <div
+                    key={application.id}
+                    className="rounded-2xl bg-white p-6 shadow-sm"
+                  >
 
-                      <h2 className="text-lg font-bold text-slate-900">
-                        {application.studentName || 'Unknown Student'}
-                      </h2>
+                    {/* Top section */}
 
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                        Roll No: {application.rollNumber || 'N/A'}
-                      </span>
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+
+                      {/* Student */}
+
+                      <div>
+
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Student
+                        </p>
+
+                        <h2 className="mt-1 text-xl font-bold text-slate-900">
+                          {student?.name ||
+                            `Student #${application.student_id}`}
+                        </h2>
+
+                        <div className="mt-2 space-y-1 text-sm text-slate-500">
+
+                          <p>
+                            Roll Number:{' '}
+                            <span className="font-medium text-slate-700">
+                              {student?.roll_no ||
+                                'Not available'}
+                            </span>
+                          </p>
+
+                          <p>
+                            Branch:{' '}
+                            <span className="font-medium text-slate-700">
+                              {student?.branch ||
+                                'Not available'}
+                            </span>
+                          </p>
+
+                          <p>
+                            CGPA:{' '}
+                            <span className="font-medium text-slate-700">
+                              {student?.cgpa ??
+                                'Not available'}
+                            </span>
+                          </p>
+
+                          <p>
+                            Email:{' '}
+                            <span className="font-medium text-slate-700">
+                              {student?.email ||
+                                'Not available'}
+                            </span>
+                          </p>
+
+                        </div>
+
+                      </div>
+
+                      {/* Company */}
+
+                      <div className="lg:text-right">
+
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Placement Drive
+                        </p>
+
+                        <h3 className="mt-1 text-lg font-bold text-slate-900">
+                          {drive?.company_name ||
+                            'Unknown Company'}
+                        </h3>
+
+                        <p className="mt-1 text-sm text-slate-500">
+                          {drive?.role ||
+                            'Unknown Role'}
+                        </p>
+
+                        {drive?.ctc && (
+
+                          <p className="mt-1 text-sm font-medium text-slate-700">
+                            {drive.ctc}
+                          </p>
+
+                        )}
+
+                      </div>
 
                     </div>
 
-                    <p className="mt-3 font-semibold text-slate-900">
-                      {application.companyName || 'Unknown Company'}
-                    </p>
+                    {/* Divider */}
 
-                    <p className="mt-1 text-sm text-slate-500">
-                      {application.role || 'Role not specified'}
-                    </p>
+                    <div className="my-5 border-t border-slate-100" />
 
-                    <div className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                    {/* Application information */}
 
-                      <p>
-                        <span className="font-medium text-slate-800">
-                          Email:
-                        </span>{' '}
-                        {application.collegeEmail || 'N/A'}
-                      </p>
+                    <div className="grid gap-5 md:grid-cols-3">
 
-                      <p>
-                        <span className="font-medium text-slate-800">
-                          Branch:
-                        </span>{' '}
-                        {application.branch || 'N/A'}
-                      </p>
+                      {/* Applied date */}
 
-                      <p>
-                        <span className="font-medium text-slate-800">
-                          Graduation:
-                        </span>{' '}
-                        {application.graduationYear || 'N/A'}
-                      </p>
+                      <div>
 
-                      <p>
-                        <span className="font-medium text-slate-800">
-                          CTC:
-                        </span>{' '}
-                        {application.ctc || 'N/A'}
-                      </p>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Applied On
+                        </p>
 
-                      <p>
-                        <span className="font-medium text-slate-800">
-                          Location:
-                        </span>{' '}
-                        {application.location || 'N/A'}
-                      </p>
+                        <p className="mt-1 text-sm font-medium text-slate-900">
+                          {application.applied_at
+                            ? new Date(
+                                application.applied_at
+                              ).toLocaleString(
+                                'en-IN'
+                              )
+                            : 'Not available'}
+                        </p>
+
+                      </div>
+
+                      {/* Current status */}
+
+                      <div>
+
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Current Status
+                        </p>
+
+                        <span
+                          className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(
+                            application.status
+                          )}`}
+                        >
+                          {application.status}
+                        </span>
+
+                      </div>
+
+                      {/* Status control */}
+
+                      <div>
+
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Update Status
+                        </p>
+
+                        <select
+                          value={
+                            application.status
+                          }
+                          disabled={
+                            updatingId ===
+                            application.id
+                          }
+                          onChange={(event) =>
+                            updateStatus(
+                              application.id,
+                              event.target.value
+                            )
+                          }
+                          className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+
+                          <option value="Applied">
+                            Applied
+                          </option>
+
+                          <option value="Shortlisted">
+                            Shortlisted
+                          </option>
+
+                          <option value="Selected">
+                            Selected
+                          </option>
+
+                          <option value="Rejected">
+                            Rejected
+                          </option>
+
+                        </select>
+
+                        {updatingId ===
+                          application.id && (
+
+                          <p className="mt-1 text-xs text-slate-400">
+                            Updating...
+                          </p>
+
+                        )}
+
+                      </div>
 
                     </div>
 
-                    <p className="mt-4 text-xs text-slate-400">
-                      Applied on{' '}
-                      {application.appliedAt
-                        ? new Date(
-                            application.appliedAt
-                          ).toLocaleDateString('en-IN')
-                        : 'Unknown date'}
-                    </p>
+                    {/* View drive */}
+
+                    {drive?.id && (
+
+                      <div className="mt-5 border-t border-slate-100 pt-4">
+
+                        <button
+                          onClick={() =>
+                            navigate(
+                              `/admin/drive/${drive.id}`
+                            )
+                          }
+                          className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                        >
+                          View Placement Drive →
+                        </button>
+
+                      </div>
+
+                    )}
 
                   </div>
 
-                  {/* Status */}
-
-                  <div className="w-full lg:w-64">
-
-                    <label className="text-xs font-semibold text-slate-500">
-                      Application Status
-                    </label>
-
-                    <select
-                      value={application.status || 'Applied'}
-                      onChange={(event) =>
-                        updateApplicationStatus(
-                          application.id,
-                          event.target.value
-                        )
-                      }
-                      className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    >
-
-                      <option value="Applied">
-                        Applied
-                      </option>
-
-                      <option value="PPT">
-                        PPT
-                      </option>
-
-                      <option value="Online Test">
-                        Online Test
-                      </option>
-
-                      <option value="Interview">
-                        Interview
-                      </option>
-
-                      <option value="Selected">
-                        Selected
-                      </option>
-
-                      <option value="Rejected">
-                        Rejected
-                      </option>
-
-                    </select>
-
-                    <div className="mt-3">
-
-                      <span
-                        className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                          application.status === 'Selected'
-                            ? 'bg-green-100 text-green-700'
-                            : application.status === 'Rejected'
-                              ? 'bg-red-100 text-red-700'
-                              : application.status === 'Interview'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-blue-100 text-blue-700'
-                        }`}
-                      >
-                        {application.status || 'Applied'}
-                      </span>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            ))}
+                )
+              }
+            )}
 
           </div>
 

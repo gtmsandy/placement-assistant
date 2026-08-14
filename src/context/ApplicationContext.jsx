@@ -1,163 +1,213 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from 'react'
 
 const ApplicationContext = createContext()
 
-export function ApplicationProvider({ children }) {
-  const [applications, setApplications] = useState(() => {
-    const savedApplications =
-      localStorage.getItem('placementApplications')
+const API_BASE_URL = 'http://127.0.0.1:8000'
 
-    return savedApplications
-      ? JSON.parse(savedApplications)
-      : []
-  })
+export function ApplicationProvider({ children }) {
+  const [applications, setApplications] = useState([])
+
+  const [loading, setLoading] = useState(true)
+
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    localStorage.setItem(
-      'placementApplications',
-      JSON.stringify(applications)
-    )
-  }, [applications])
+    async function loadApplications() {
+      try {
+        setLoading(true)
+        setError(null)
 
-  const applyToDrive = (drive, student) => {
+        const response = await fetch(
+          `${API_BASE_URL}/api/applications/`
+        )
+
+        if (!response.ok) {
+          throw new Error(
+            'Failed to load applications'
+          )
+        }
+
+        const data = await response.json()
+
+        setApplications(data)
+      } catch (error) {
+        console.error(
+          'Failed to load applications:',
+          error
+        )
+
+        setError(
+          error.message ||
+            'Failed to load applications'
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadApplications()
+  }, [])
+
+  const applyToDrive = async (
+    drive,
+    student
+  ) => {
     if (!drive || !student) {
       return false
     }
 
-    const existingApplication = applications.find(
-      (application) =>
-        application.driveId === drive.id &&
-        application.rollNumber === student.rollNumber
-    )
+    if (!student.id) {
+      console.error(
+        'Student ID is missing'
+      )
 
-    if (existingApplication) {
+      alert(
+        'Student ID is missing. Please configure the student profile.'
+      )
+
       return false
     }
 
-    const newApplication = {
-      id: Date.now().toString(),
-
-      driveId: drive.id,
-
-      companyName: drive.companyName || '',
-      role: drive.role || '',
-      ctc: drive.ctc || '',
-      location: drive.location || '',
-
-      studentName:
-        student.fullName ||
-        student.name ||
-        '',
-
-      rollNumber:
-        student.rollNumber ||
-        '',
-
-      collegeEmail:
-        student.collegeEmail ||
-        '',
-
-      personalEmail:
-        student.personalEmail ||
-        '',
-
-      mobileNumber:
-        student.mobileNumber ||
-        '',
-
-      gender:
-        student.gender ||
-        '',
-
-      speciallyAbled:
-        student.speciallyAbled ||
-        false,
-
-      tenthPercentage:
-        student.tenthPercentage ||
-        '',
-
-      twelfthPercentage:
-        student.twelfthPercentage ||
-        '',
-
-      cgpa:
-        student.cgpa ||
-        '',
-
-      branch:
-        student.branch ||
-        '',
-
-      graduationYear:
-        student.graduationYear ||
-        '',
-
-      activeBacklogs:
-        student.activeBacklogs ??
-        student.backlogs ??
-        0,
-
-      status: 'Applied',
-
-      appliedAt: new Date().toISOString(),
-
-      statusHistory: [
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/applications/`,
         {
-          status: 'Applied',
-          date: new Date().toISOString(),
-        },
-      ],
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+          },
+
+          body: JSON.stringify({
+            student_id: student.id,
+            drive_id: drive.id,
+          }),
+        }
+      )
+
+      const data =
+        await response.json()
+
+      if (!response.ok) {
+        console.error(
+          'Application API error:',
+          data
+        )
+
+        alert(
+          data.detail ||
+            'Unable to submit application.'
+        )
+
+        return false
+      }
+
+      setApplications(
+        (previousApplications) => [
+          ...previousApplications,
+          data,
+        ]
+      )
+
+      return true
+    } catch (error) {
+      console.error(
+        'Failed to submit application:',
+        error
+      )
+
+      alert(
+        'Unable to connect to the placement server.'
+      )
+
+      return false
     }
-
-    setApplications((previousApplications) => [
-      ...previousApplications,
-      newApplication,
-    ])
-
-    return true
   }
 
-  const getApplication = (driveId, rollNumber) => {
+  const getApplication = (
+    driveId,
+    studentId
+  ) => {
     return applications.find(
       (application) =>
-        application.driveId === driveId &&
-        application.rollNumber === rollNumber
+        String(
+          application.drive_id
+        ) === String(driveId) &&
+        String(
+          application.student_id
+        ) === String(studentId)
     )
   }
 
-  const updateApplicationStatus = (
-    applicationId,
-    newStatus
-  ) => {
-    setApplications((previousApplications) =>
-      previousApplications.map((application) => {
-        if (application.id !== applicationId) {
-          return application
-        }
-
-        const statusHistory =
-          application.statusHistory || []
-
-        return {
-          ...application,
-
-          status: newStatus,
-
-          statusHistory: [
-            ...statusHistory,
+  const updateApplicationStatus =
+    async (
+      applicationId,
+      newStatus
+    ) => {
+      try {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/api/applications/${applicationId}?status=${encodeURIComponent(
+              newStatus
+            )}`,
             {
-              status: newStatus,
-              date: new Date().toISOString(),
-            },
-          ],
+              method: 'PATCH',
+            }
+          )
+
+        const data =
+          await response.json()
+
+        if (!response.ok) {
+          console.error(
+            'Application status API error:',
+            data
+          )
+
+          alert(
+            data.detail ||
+              'Unable to update application status.'
+          )
+
+          return false
         }
-      })
-    )
-  }
+
+        setApplications(
+          (previousApplications) =>
+            previousApplications.map(
+              (application) =>
+                application.id ===
+                applicationId
+                  ? data
+                  : application
+            )
+        )
+
+        return true
+      } catch (error) {
+        console.error(
+          'Failed to update application status:',
+          error
+        )
+
+        alert(
+          'Unable to connect to the placement server.'
+        )
+
+        return false
+      }
+    }
 
   const clearApplications = () => {
-    setApplications([])
+    console.warn(
+      'Applications are stored in the backend. Clear operation is not available.'
+    )
   }
 
   return (
@@ -168,6 +218,8 @@ export function ApplicationProvider({ children }) {
         getApplication,
         updateApplicationStatus,
         clearApplications,
+        loading,
+        error,
       }}
     >
       {children}
@@ -176,5 +228,7 @@ export function ApplicationProvider({ children }) {
 }
 
 export function useApplications() {
-  return useContext(ApplicationContext)
+  return useContext(
+    ApplicationContext
+  )
 }

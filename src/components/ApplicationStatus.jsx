@@ -1,56 +1,169 @@
 function ApplicationStatus({ status }) {
+  const normalizedStatus =
+    String(status || 'Applied').toLowerCase()
+
   const steps = [
-    'Applied',
-    'PPT',
-    'Online Test',
-    'Interview',
-    'Result',
+    {
+      key: 'Applied',
+      label: 'Applied',
+    },
+    {
+      key: 'PPT',
+      label: 'PPT',
+    },
+    {
+      key: 'Online Test',
+      label: 'Online Test',
+    },
+    {
+      key: 'Interview',
+      label: 'Interview',
+    },
+    {
+      key: 'Result',
+      label: 'Result',
+    },
   ]
 
-  const statusIndex =
-    status === 'Selected' || status === 'Rejected'
-      ? 4
-      : steps.indexOf(status)
+  let completedSteps = 0
+  let currentStep = null
+  let rejected = false
+
+  if (normalizedStatus === 'applied') {
+    completedSteps = 1
+    currentStep = 'Applied'
+  }
+
+  if (normalizedStatus === 'shortlisted') {
+    completedSteps = 3
+    currentStep = 'Interview'
+  }
+
+  if (normalizedStatus === 'selected') {
+    completedSteps = 5
+  }
+
+  if (normalizedStatus === 'rejected') {
+    completedSteps = 4
+    currentStep = 'Result'
+    rejected = true
+  }
+
+  const getStepState = (index, step) => {
+    if (rejected && step.key === 'Result') {
+      return 'rejected'
+    }
+
+    if (index < completedSteps) {
+      return 'completed'
+    }
+
+    if (
+      currentStep &&
+      step.key === currentStep
+    ) {
+      return 'current'
+    }
+
+    return 'pending'
+  }
 
   return (
     <div className="mt-5">
 
-      <div className="flex items-center">
+      <div className="flex items-start">
 
         {steps.map((step, index) => {
-          const completed = index <= statusIndex
+
+          const state = getStepState(
+            index,
+            step
+          )
 
           return (
             <div
-              key={step}
-              className="flex flex-1 items-center"
+              key={step.key}
+              className="flex min-w-0 flex-1 items-start"
             >
 
-              <div className="flex flex-col items-center">
+              {/* Step */}
+
+              <div className="flex min-w-0 flex-1 flex-col items-center">
 
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${
-                    completed
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-200 text-slate-500'
-                  }`}
+                  className={`
+                    flex h-9 w-9 items-center justify-center
+                    rounded-full text-sm font-bold
+                    ${
+                      state === 'completed'
+                        ? 'bg-green-100 text-green-700'
+                        : state === 'current'
+                          ? 'bg-blue-100 text-blue-700 ring-2 ring-blue-200'
+                          : state === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-slate-100 text-slate-400'
+                    }
+                  `}
                 >
-                  {completed ? '✓' : index + 1}
+                  {state === 'completed' && '✓'}
+
+                  {state === 'current' && (
+                    index + 1
+                  )}
+
+                  {state === 'rejected' && '✕'}
+
+                  {state === 'pending' && (
+                    index + 1
+                  )}
                 </div>
 
-                <p className="mt-2 text-center text-[10px] text-slate-500 sm:text-xs">
-                  {step}
+                <p
+                  className={`
+                    mt-2 text-center text-xs font-semibold
+                    ${
+                      state === 'completed'
+                        ? 'text-green-700'
+                        : state === 'current'
+                          ? 'text-blue-700'
+                          : state === 'rejected'
+                            ? 'text-red-700'
+                            : 'text-slate-400'
+                    }
+                  `}
+                >
+                  {step.label}
                 </p>
+
+                {/* Current status text */}
+
+                {state === 'current' && (
+                  <p className="mt-1 text-center text-[10px] font-medium text-blue-600">
+                    Current
+                  </p>
+                )}
+
+                {state === 'rejected' && (
+                  <p className="mt-1 text-center text-[10px] font-medium text-red-600">
+                    Rejected
+                  </p>
+                )}
 
               </div>
 
+              {/* Connector */}
+
               {index < steps.length - 1 && (
                 <div
-                  className={`mx-2 h-1 flex-1 rounded ${
-                    index < statusIndex
-                      ? 'bg-blue-600'
-                      : 'bg-slate-200'
-                  }`}
+                  className={`
+                    mt-4 h-0.5 flex-1
+                    ${
+                      index <
+                      completedSteps - 1
+                        ? 'bg-green-300'
+                        : 'bg-slate-200'
+                    }
+                  `}
                 />
               )}
 
@@ -60,26 +173,23 @@ function ApplicationStatus({ status }) {
 
       </div>
 
-      {(status === 'Selected' ||
-        status === 'Rejected') && (
-        <div
-          className={`mt-5 rounded-xl p-4 ${
-            status === 'Selected'
-              ? 'bg-green-50'
-              : 'bg-red-50'
-          }`}
-        >
+      {/* Final result message */}
 
-          <p
-            className={`font-semibold ${
-              status === 'Selected'
-                ? 'text-green-700'
-                : 'text-red-700'
-            }`}
-          >
-            {status === 'Selected'
-              ? '🎉 Congratulations! You have been selected.'
-              : 'Application rejected'}
+      {normalizedStatus === 'selected' && (
+        <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
+
+          <p className="text-sm font-semibold text-green-800">
+            🎉 Congratulations! You have been selected.
+          </p>
+
+        </div>
+      )}
+
+      {normalizedStatus === 'rejected' && (
+        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
+
+          <p className="text-sm font-semibold text-red-800">
+            Your application was not selected.
           </p>
 
         </div>
