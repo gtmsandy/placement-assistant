@@ -29,7 +29,11 @@ function Applications() {
 
     const parsedDate = new Date(date)
 
-    if (Number.isNaN(parsedDate.getTime())) {
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
       return date
     }
 
@@ -46,6 +50,8 @@ function Applications() {
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
 
+      {/* Header */}
+
       <header className="border-b border-slate-200 bg-white px-5 py-5">
 
         <div className="mx-auto max-w-5xl">
@@ -54,7 +60,7 @@ function Applications() {
             onClick={() =>
               navigate('/student')
             }
-            className="text-sm font-medium text-blue-600"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700"
           >
             ← Back to Dashboard
           </button>
@@ -73,6 +79,8 @@ function Applications() {
 
       <main className="mx-auto max-w-5xl px-5 py-8">
 
+        {/* Loading */}
+
         {loading ? (
 
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
@@ -89,6 +97,8 @@ function Applications() {
 
         ) : error ? (
 
+          /* Error */
+
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
 
             <p className="text-lg font-semibold text-red-600">
@@ -102,6 +112,8 @@ function Applications() {
           </div>
 
         ) : applications.length === 0 ? (
+
+          /* Empty state */
 
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
 
@@ -126,14 +138,31 @@ function Applications() {
 
         ) : (
 
+          /* Applications */
+
           <div className="space-y-5">
 
             {applications.map(
               (application) => {
 
-                const drive = getDrive(
-                  application.drive_id
-                )
+                const drive =
+                  getDrive(
+                    application.drive_id
+                  )
+
+                /*
+                  The application belongs to
+                  a specific placement drive.
+
+                  We use that drive's
+                  resumeShortlisting value
+                  to construct the correct
+                  application timeline.
+                */
+                const resumeShortlisting =
+                  Boolean(
+                    drive?.resumeShortlisting
+                  )
 
                 return (
                   <div
@@ -194,18 +223,32 @@ function Applications() {
                         </span>
 
                         <p className="mt-2 text-xs text-slate-400">
-
                           Applied{' '}
-
                           {formatDate(
                             application.applied_at
                           )}
-
                         </p>
 
                       </div>
 
                     </div>
+
+                    {/* Resume shortlisting information */}
+
+                    {resumeShortlisting && (
+                      <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3">
+
+                        <p className="text-xs font-semibold text-blue-800">
+                          Resume Shortlisting Required
+                        </p>
+
+                        <p className="mt-1 text-xs text-blue-700">
+                          Your resume will be reviewed before
+                          you proceed to the next recruitment stage.
+                        </p>
+
+                      </div>
+                    )}
 
                     {/* Application progress */}
 
@@ -214,6 +257,9 @@ function Applications() {
                       <ApplicationStatus
                         status={
                           application.status
+                        }
+                        resumeShortlisting={
+                          resumeShortlisting
                         }
                       />
 

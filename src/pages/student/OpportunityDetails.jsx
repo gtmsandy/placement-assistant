@@ -523,23 +523,25 @@ function OpportunityDetails() {
 
               <span
                 className={`text-sm font-semibold ${
-                  String(
-                    student.graduationYear
-                  ) ===
+                  !drive.graduationYear ||
                   String(
                     drive.graduationYear
-                  )
+                  ) ===
+                    String(
+                      student.graduationYear
+                    )
                     ? 'text-green-600'
                     : 'text-red-600'
                 }`}
               >
 
-                {String(
-                  student.graduationYear
-                ) ===
+                {!drive.graduationYear ||
                 String(
                   drive.graduationYear
-                )
+                ) ===
+                  String(
+                    student.graduationYear
+                  )
                   ? '✓'
                   : '✕'}{' '}
 
@@ -573,7 +575,7 @@ function OpportunityDetails() {
                 Registration Deadline
               </p>
 
-              <p className="mt-1 text-sm text-red-500">
+              <p className="mt-1 text-red-500">
                 {formatDate(
                   drive.deadline
                 )}
@@ -740,9 +742,45 @@ function OpportunityDetails() {
                   placement drive.
                 </p>
 
-                <p className="mt-2 text-xs text-green-600">
-                  Status: {application.status}
-                </p>
+                {drive.resumeShortlisting && (
+
+                  <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+
+                    <div className="flex items-start gap-3">
+
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                        ✓
+                      </div>
+
+                      <div>
+
+                        <p className="text-sm font-semibold text-blue-800">
+                          Resume Shortlisting Required
+                        </p>
+
+                        <p className="mt-1 text-sm text-blue-700">
+                          Your resume will be reviewed before you proceed to the next recruitment stage.
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                )}
+
+                <div className="mt-3 flex items-center justify-between gap-4">
+
+                  <p className="text-xs text-green-600">
+                    Status:
+                  </p>
+
+                  <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-green-700">
+                    {application.status}
+                  </span>
+
+                </div>
 
               </div>
 
@@ -768,6 +806,22 @@ function OpportunityDetails() {
                 criteria for this placement
                 drive.
               </p>
+
+              {drive.resumeShortlisting && (
+
+                <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+
+                  <p className="text-sm font-semibold text-blue-800">
+                    Resume Shortlisting Required
+                  </p>
+
+                  <p className="mt-1 text-sm text-blue-700">
+                    Your resume will be reviewed before you proceed to the next recruitment stage.
+                  </p>
+
+                </div>
+
+              )}
 
               <button
                 onClick={handleApply}

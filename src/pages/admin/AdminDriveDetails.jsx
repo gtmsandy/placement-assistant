@@ -29,6 +29,11 @@ function AdminDriveDetails() {
 
         const data = await response.json()
 
+        console.log(
+          'Admin drive details:',
+          data
+        )
+
         setDrive(data)
       } catch (error) {
         console.error(
@@ -318,6 +323,49 @@ function AdminDriveDetails() {
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
 
+            {/* Resume Shortlisting */}
+
+            <div className="rounded-xl bg-slate-50 p-4 sm:col-span-2">
+
+              <div className="flex items-center justify-between gap-4">
+
+                <div>
+
+                  <p className="text-xs text-slate-500">
+                    Resume Shortlisting
+                  </p>
+
+                  <p className="mt-1 font-semibold text-slate-900">
+                    {drive.resume_shortlisting
+                      ? 'Required'
+                      : 'Not Required'}
+                  </p>
+
+                </div>
+
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    drive.resume_shortlisting
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  {drive.resume_shortlisting
+                    ? 'Resume Screening'
+                    : 'No Resume Screening'}
+                </span>
+
+              </div>
+
+              {drive.resume_shortlisting && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Resumes will be reviewed before
+                  the next recruitment stage.
+                </p>
+              )}
+
+            </div>
+
             <div className="rounded-xl bg-slate-50 p-4">
               <p className="text-xs text-slate-500">
                 Registration Deadline
@@ -420,7 +468,8 @@ function AdminDriveDetails() {
 
               {drive.jd && (
                 <p className="mt-2 text-xs text-slate-400">
-                  JD file viewing will be connected to file storage later.
+                  JD file viewing will be connected to
+                  file storage later.
                 </p>
               )}
 

@@ -1,4 +1,7 @@
-function ApplicationStatus({ status }) {
+function ApplicationStatus({
+  status,
+  resumeShortlisting = false,
+}) {
   const normalizedStatus =
     String(status || 'Applied').toLowerCase()
 
@@ -7,18 +10,31 @@ function ApplicationStatus({ status }) {
       key: 'Applied',
       label: 'Applied',
     },
+
+    ...(resumeShortlisting
+      ? [
+          {
+            key: 'Resume Shortlisting',
+            label: 'Resume Shortlisting',
+          },
+        ]
+      : []),
+
     {
       key: 'PPT',
       label: 'PPT',
     },
+
     {
       key: 'Online Test',
       label: 'Online Test',
     },
+
     {
       key: 'Interview',
       label: 'Interview',
     },
+
     {
       key: 'Result',
       label: 'Result',
@@ -35,22 +51,31 @@ function ApplicationStatus({ status }) {
   }
 
   if (normalizedStatus === 'shortlisted') {
-    completedSteps = 3
+    if (resumeShortlisting) {
+      completedSteps = 4
+    } else {
+      completedSteps = 3
+    }
+
     currentStep = 'Interview'
   }
 
   if (normalizedStatus === 'selected') {
-    completedSteps = 5
+    completedSteps = steps.length
+    currentStep = null
   }
 
   if (normalizedStatus === 'rejected') {
-    completedSteps = 4
+    completedSteps = steps.length - 1
     currentStep = 'Result'
     rejected = true
   }
 
   const getStepState = (index, step) => {
-    if (rejected && step.key === 'Result') {
+    if (
+      rejected &&
+      step.key === 'Result'
+    ) {
       return 'rejected'
     }
 
@@ -74,7 +99,6 @@ function ApplicationStatus({ status }) {
       <div className="flex items-start">
 
         {steps.map((step, index) => {
-
           const state = getStepState(
             index,
             step
@@ -107,15 +131,13 @@ function ApplicationStatus({ status }) {
                 >
                   {state === 'completed' && '✓'}
 
-                  {state === 'current' && (
-                    index + 1
-                  )}
+                  {state === 'current' &&
+                    index + 1}
 
                   {state === 'rejected' && '✕'}
 
-                  {state === 'pending' && (
-                    index + 1
-                  )}
+                  {state === 'pending' &&
+                    index + 1}
                 </div>
 
                 <p
@@ -135,13 +157,24 @@ function ApplicationStatus({ status }) {
                   {step.label}
                 </p>
 
-                {/* Current status text */}
+                {/* Resume Screening label */}
+
+                {step.key ===
+                  'Resume Shortlisting' && (
+                  <p className="mt-1 text-center text-[10px] font-medium text-slate-500">
+                    Resume Screening
+                  </p>
+                )}
+
+                {/* Current status */}
 
                 {state === 'current' && (
                   <p className="mt-1 text-center text-[10px] font-medium text-blue-600">
                     Current
                   </p>
                 )}
+
+                {/* Rejected status */}
 
                 {state === 'rejected' && (
                   <p className="mt-1 text-center text-[10px] font-medium text-red-600">
@@ -173,7 +206,7 @@ function ApplicationStatus({ status }) {
 
       </div>
 
-      {/* Final result message */}
+      {/* Selected message */}
 
       {normalizedStatus === 'selected' && (
         <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
@@ -184,6 +217,8 @@ function ApplicationStatus({ status }) {
 
         </div>
       )}
+
+      {/* Rejected message */}
 
       {normalizedStatus === 'rejected' && (
         <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">

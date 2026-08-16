@@ -15,9 +15,7 @@ const PlacementContext =
   createContext()
 
 
-function mapDriveFromApi(
-  drive
-) {
+function mapDriveFromApi(drive) {
   return {
     id:
       drive.id,
@@ -59,6 +57,15 @@ function mapDriveFromApi(
           )
         : '',
 
+    /*
+      Resume shortlisting
+
+      Backend:
+        resume_shortlisting
+
+      Frontend:
+        resumeShortlisting
+    */
     resumeShortlisting:
       Boolean(
         drive.resume_shortlisting
@@ -77,22 +84,25 @@ function mapDriveFromApi(
       drive.interview || '',
 
     registrationLink:
-      drive.registration_link ||
-      '',
+      drive.registration_link || '',
 
+    /*
+      Backend currently stores JD
+      as text.
+
+      Later this can be replaced
+      with a real file-storage URL.
+    */
     jd:
       drive.jd || '',
 
     status:
-      drive.status ||
-      'Published',
+      drive.status || 'Published',
   }
 }
 
 
-function mapDriveToApi(
-  drive
-) {
+function mapDriveToApi(drive) {
   return {
     company_name:
       drive.companyName || '',
@@ -137,47 +147,47 @@ function mapDriveToApi(
         drive.graduationYear
       ) || 0,
 
+    /*
+      Frontend:
+        resumeShortlisting
+
+      Backend:
+        resume_shortlisting
+    */
     resume_shortlisting:
       Boolean(
         drive.resumeShortlisting
       ),
 
     deadline:
-      drive.deadline ||
-      null,
+      drive.deadline || null,
 
     ppt:
-      drive.ppt ||
-      null,
+      drive.ppt || null,
 
     online_test:
-      drive.ot ||
-      null,
+      drive.ot || null,
 
     interview:
-      drive.interview ||
-      null,
+      drive.interview || null,
 
     registration_link:
-      drive.registrationLink ||
-      '',
+      drive.registrationLink || '',
 
     /*
-      The backend currently stores
+      Backend currently stores
       JD as text.
 
-      If jd is a File object,
-      only the filename is sent.
+      If a File object is supplied,
+      only its filename is sent.
     */
     jd:
-      typeof drive.jd ===
-      'string'
+      typeof drive.jd === 'string'
         ? drive.jd
         : drive.jd?.name || '',
 
     status:
-      drive.status ||
-      'Published',
+      drive.status || 'Published',
   }
 }
 
@@ -195,6 +205,10 @@ export function PlacementProvider({
     useState(null)
 
 
+  /*
+    Load all placement drives
+    from the FastAPI backend.
+  */
   useEffect(() => {
     async function loadDrives() {
       try {
@@ -213,6 +227,11 @@ export function PlacementProvider({
           apiDrives.map(
             mapDriveFromApi
           )
+
+        console.log(
+          'Mapped placement drives:',
+          mappedDrives
+        )
 
         setDrives(
           mappedDrives
@@ -238,6 +257,9 @@ export function PlacementProvider({
   }, [])
 
 
+  /*
+    Create a new placement drive.
+  */
   const addDrive =
     async (drive) => {
       try {

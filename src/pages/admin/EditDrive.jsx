@@ -15,6 +15,7 @@ function toDateTimeLocal(value) {
   }
 
   const year = date.getFullYear()
+
   const month = String(
     date.getMonth() + 1
   ).padStart(2, '0')
@@ -38,9 +39,14 @@ function EditDrive() {
   const navigate = useNavigate()
   const { id } = useParams()
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [loading, setLoading] =
+    useState(true)
+
+  const [saving, setSaving] =
+    useState(false)
+
+  const [error, setError] =
+    useState('')
 
   const [form, setForm] = useState({
     company_name: '',
@@ -57,6 +63,8 @@ function EditDrive() {
     gender: 'Any',
     graduation_year: '',
 
+    resume_shortlisting: false,
+
     deadline: '',
     ppt: '',
     online_test: '',
@@ -64,6 +72,7 @@ function EditDrive() {
 
     registration_link: '',
     jd: '',
+
     status: 'Published',
   })
 
@@ -83,7 +92,8 @@ function EditDrive() {
           )
         }
 
-        const drive = await response.json()
+        const drive =
+          await response.json()
 
         setForm({
           company_name:
@@ -118,6 +128,11 @@ function EditDrive() {
 
           graduation_year:
             drive.graduation_year || '',
+
+          resume_shortlisting:
+            Boolean(
+              drive.resume_shortlisting
+            ),
 
           deadline:
             toDateTimeLocal(
@@ -170,11 +185,17 @@ function EditDrive() {
     const {
       name,
       value,
+      type,
+      checked,
     } = event.target
 
     setForm((previous) => ({
       ...previous,
-      [name]: value,
+
+      [name]:
+        type === 'checkbox'
+          ? checked
+          : value,
     }))
   }
 
@@ -235,7 +256,14 @@ function EditDrive() {
           form.gender || 'Any',
 
         graduation_year:
-          Number(form.graduation_year) || null,
+          Number(
+            form.graduation_year
+          ) || null,
+
+        resume_shortlisting:
+          Boolean(
+            form.resume_shortlisting
+          ),
 
         deadline:
           form.deadline || null,
@@ -619,6 +647,40 @@ function EditDrive() {
               Recruitment Schedule
             </h2>
 
+            {/* Resume Shortlisting */}
+
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+              <label className="flex cursor-pointer items-start gap-3">
+
+                <input
+                  type="checkbox"
+                  name="resume_shortlisting"
+                  checked={
+                    form.resume_shortlisting
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+
+                <span>
+
+                  <span className="block text-sm font-semibold text-slate-900">
+                    Resume Shortlisting Required
+                  </span>
+
+                  <span className="mt-1 block text-xs text-slate-500">
+                    Whether resumes will be reviewed before the next recruitment stage.
+                  </span>
+
+                </span>
+
+              </label>
+
+            </div>
+
             <div className="mt-5 space-y-5">
 
               <div>
@@ -742,6 +804,7 @@ function EditDrive() {
                 <p className="mt-2 text-xs text-slate-400">
                   JD file storage will be connected later.
                 </p>
+
               </div>
 
             </div>
