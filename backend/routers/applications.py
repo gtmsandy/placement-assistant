@@ -181,6 +181,7 @@ def create_application(
         student_id=application_data.student_id,
         drive_id=application_data.drive_id,
         status="Applied",
+        current_stage="Applied",
     )
 
     db.add(application)
@@ -197,6 +198,7 @@ def create_application(
 def update_application_status(
     application_id: int,
     status: str,
+    current_stage: str = "Applied",
     db: Session = Depends(get_db),
 ):
     application = (
@@ -226,7 +228,74 @@ def update_application_status(
             detail="Invalid application status",
         )
 
+    allowed_stages = [
+        "Applied",
+        "Resume Shortlisting",
+        "PPT",
+        "Online Test",
+        "Interview",
+        "Result",
+    ]
+
+    if current_stage not in allowed_stages:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid recruitment stage",
+        )
+
+    drive = (
+        db.query(PlacementDrive)
+        .filter(
+            PlacementDrive.id
+            == application.drive_id
+        )
+        .first()
+    )
+
+    if not drive:
+        raise HTTPException(
+            status_code=404,
+            detail="Placement drive not found",
+        )
+
+    if (
+        current_stage == "Resume Shortlisting"
+        and not drive.resume_shortlisting
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Resume shortlisting is not "
+                "required for this placement drive"
+            ),
+        )
+
+    if (
+        status in ["Selected", "Rejected"]
+        and current_stage != "Result"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Selected or Rejected applications "
+                "must have Result as the current stage"
+            ),
+        )
+
+    if (
+        status == "Applied"
+        and current_stage != "Applied"
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Applied applications must have "
+                "Applied as the current stage"
+            ),
+        )
+
     application.status = status
+    application.current_stage = current_stage
 
     db.commit()
     db.refresh(application)

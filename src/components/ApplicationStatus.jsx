@@ -1,9 +1,19 @@
 function ApplicationStatus({
   status,
+  currentStage,
   resumeShortlisting = false,
 }) {
   const normalizedStatus =
     String(status || 'Applied').toLowerCase()
+
+  const normalizedCurrentStage =
+    String(
+      currentStage ||
+        (normalizedStatus === 'selected' ||
+        normalizedStatus === 'rejected'
+          ? 'Result'
+          : 'Applied')
+    ).trim()
 
   const steps = [
     {
@@ -41,55 +51,70 @@ function ApplicationStatus({
     },
   ]
 
-  let completedSteps = 0
-  let currentStep = null
-  let rejected = false
+  const currentIndex = steps.findIndex(
+    (step) =>
+      step.key === normalizedCurrentStage
+  )
 
-  if (normalizedStatus === 'applied') {
-    completedSteps = 1
-    currentStep = 'Applied'
-  }
+  const isSelected =
+    normalizedStatus === 'selected'
 
-  if (normalizedStatus === 'shortlisted') {
-    if (resumeShortlisting) {
-      completedSteps = 4
-    } else {
-      completedSteps = 3
-    }
-
-    currentStep = 'Interview'
-  }
-
-  if (normalizedStatus === 'selected') {
-    completedSteps = steps.length
-    currentStep = null
-  }
-
-  if (normalizedStatus === 'rejected') {
-    completedSteps = steps.length - 1
-    currentStep = 'Result'
-    rejected = true
-  }
+  const isRejected =
+    normalizedStatus === 'rejected'
 
   const getStepState = (index, step) => {
+    /*
+      Selected applications have completed
+      the complete recruitment process.
+    */
+    if (isSelected) {
+      return 'completed'
+    }
+
+    /*
+      Rejected applications are considered
+      completed up to the Result stage,
+      where the rejection occurred.
+    */
     if (
-      rejected &&
+      isRejected &&
       step.key === 'Result'
     ) {
       return 'rejected'
     }
 
-    if (index < completedSteps) {
+    /*
+      If the current stage cannot be found,
+      keep everything except Applied pending.
+    */
+    if (currentIndex === -1) {
+      if (index === 0) {
+        return 'current'
+      }
+
+      return 'pending'
+    }
+
+    /*
+      Everything before the current stage
+      is completed.
+    */
+    if (index < currentIndex) {
       return 'completed'
     }
 
-    if (
-      currentStep &&
-      step.key === currentStep
-    ) {
+    /*
+      The actual backend current_stage
+      determines the current step.
+    */
+    if (index === currentIndex) {
       return 'current'
     }
 
+    /*
+      Everything after the current stage
+      remains pending.
+    */
     return 'pending'
   }
 
@@ -99,10 +124,12 @@ function ApplicationStatus({
       <div className="flex items-start">
 
         {steps.map((step, index) => {
-          const state = getStepState(
-            index,
-            step
-          )
+
+          const state =
+            getStepState(
+              index,
+              step
+            )
 
           return (
             <div
@@ -129,15 +156,23 @@ function ApplicationStatus({
                     }
                   `}
                 >
-                  {state === 'completed' && '✓'}
 
-                  {state === 'current' &&
-                    index + 1}
+                  {state === 'completed' && (
+                    '✓'
+                  )}
 
-                  {state === 'rejected' && '✕'}
+                  {state === 'current' && (
+                    index + 1
+                  )}
 
-                  {state === 'pending' &&
-                    index + 1}
+                  {state === 'rejected' && (
+                    '✕'
+                  )}
+
+                  {state === 'pending' && (
+                    index + 1
+                  )}
+
                 </div>
 
                 <p
@@ -191,8 +226,11 @@ function ApplicationStatus({
                   className={`
                     mt-4 h-0.5 flex-1
                     ${
-                      index <
-                      completedSteps - 1
+                      (
+                        state === 'completed' &&
+                        index <
+                          steps.length - 1
+                      )
                         ? 'bg-green-300'
                         : 'bg-slate-200'
                     }
@@ -208,7 +246,7 @@ function ApplicationStatus({
 
       {/* Selected message */}
 
-      {normalizedStatus === 'selected' && (
+      {isSelected && (
         <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
 
           <p className="text-sm font-semibold text-green-800">
@@ -220,7 +258,7 @@ function ApplicationStatus({
 
       {/* Rejected message */}
 
-      {normalizedStatus === 'rejected' && (
+      {isRejected && (
         <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
 
           <p className="text-sm font-semibold text-red-800">

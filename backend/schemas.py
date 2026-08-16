@@ -130,13 +130,22 @@ class ApplicationCreate(BaseModel):
     drive_id: int
 
 
+class ApplicationUpdate(BaseModel):
+    status: Optional[str] = None
+
+    current_stage: Optional[str] = None
+
+
 class ApplicationResponse(BaseModel):
     id: int
 
     student_id: int
+
     drive_id: int
 
     status: str
+
+    current_stage: str
 
     applied_at: datetime
 

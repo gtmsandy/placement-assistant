@@ -208,7 +208,14 @@ class Application(Base):
 
     status = Column(
         String(30),
-        default="Applied"
+        default="Applied",
+        nullable=False
+    )
+
+    current_stage = Column(
+        String(50),
+        default="Applied",
+        nullable=False
     )
 
     applied_at = Column(

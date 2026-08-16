@@ -73,14 +73,16 @@ function ApplicationsManagement() {
   const getStudent = (studentId) => {
     return students.find(
       (student) =>
-        student.id === studentId
+        String(student.id) ===
+        String(studentId)
     )
   }
 
   const getDrive = (driveId) => {
     return drives.find(
       (drive) =>
-        drive.id === driveId
+        String(drive.id) ===
+        String(driveId)
     )
   }
 
@@ -100,18 +102,97 @@ function ApplicationsManagement() {
     return 'bg-blue-100 text-blue-700'
   }
 
-  const updateStatus = async (
+  const getStageStyle = (stage) => {
+    if (stage === 'Resume Shortlisting') {
+      return 'bg-purple-100 text-purple-700'
+    }
+
+    if (stage === 'PPT') {
+      return 'bg-indigo-100 text-indigo-700'
+    }
+
+    if (stage === 'Online Test') {
+      return 'bg-blue-100 text-blue-700'
+    }
+
+    if (stage === 'Interview') {
+      return 'bg-orange-100 text-orange-700'
+    }
+
+    if (stage === 'Result') {
+      return 'bg-green-100 text-green-700'
+    }
+
+    return 'bg-slate-100 text-slate-700'
+  }
+
+  const getStageOptions = (drive) => {
+    const options = [
+      'Applied',
+    ]
+
+    if (drive?.resume_shortlisting) {
+      options.push('Resume Shortlisting')
+    }
+
+    options.push(
+      'PPT',
+      'Online Test',
+      'Interview',
+      'Result'
+    )
+
+    return options
+  }
+
+  const getDefaultStageForStatus = (
+    application,
+    drive
+  ) => {
+    if (
+      application.status === 'Selected' ||
+      application.status === 'Rejected'
+    ) {
+      return 'Result'
+    }
+
+    if (
+      application.current_stage
+    ) {
+      return application.current_stage
+    }
+
+    if (
+      application.status === 'Shortlisted'
+    ) {
+      if (
+        drive?.resume_shortlisting
+      ) {
+        return 'Resume Shortlisting'
+      }
+
+      return 'PPT'
+    }
+
+    return 'Applied'
+  }
+
+  const updateApplication = async (
     applicationId,
-    newStatus
+    newStatus,
+    newStage
   ) => {
     try {
       setUpdatingId(applicationId)
       setError('')
 
+      const query = new URLSearchParams({
+        status: newStatus,
+        current_stage: newStage,
+      })
+
       const response = await fetch(
-        `${API_BASE_URL}/api/applications/${applicationId}?status=${encodeURIComponent(
-          newStatus
-        )}`,
+        `${API_BASE_URL}/api/applications/${applicationId}?${query.toString()}`,
         {
           method: 'PATCH',
         }
@@ -123,7 +204,7 @@ function ApplicationsManagement() {
       if (!response.ok) {
         throw new Error(
           data.detail ||
-            'Failed to update application status'
+            'Failed to update application'
         )
       }
 
@@ -145,17 +226,98 @@ function ApplicationsManagement() {
 
       setError(
         error.message ||
-          'Failed to update application status'
+          'Failed to update application'
       )
     } finally {
       setUpdatingId(null)
     }
   }
 
+  const handleStatusChange = (
+    application,
+    newStatus
+  ) => {
+    const drive = getDrive(
+      application.drive_id
+    )
+
+    let newStage =
+      application.current_stage ||
+      'Applied'
+
+    if (
+      newStatus === 'Selected' ||
+      newStatus === 'Rejected'
+    ) {
+      newStage = 'Result'
+    }
+
+    if (
+      newStatus === 'Shortlisted' &&
+      (
+        !newStage ||
+        newStage === 'Applied' ||
+        newStage === 'Result'
+      )
+    ) {
+      newStage =
+        drive?.resume_shortlisting
+          ? 'Resume Shortlisting'
+          : 'PPT'
+    }
+
+    updateApplication(
+      application.id,
+      newStatus,
+      newStage
+    )
+  }
+
+  const handleStageChange = (
+    application,
+    newStage
+  ) => {
+    let newStatus =
+      application.status
+
+    if (newStage === 'Result') {
+      if (
+        newStatus !== 'Selected' &&
+        newStatus !== 'Rejected'
+      ) {
+        newStatus = 'Shortlisted'
+      }
+    }
+
+    if (
+      newStage === 'Applied'
+    ) {
+      newStatus = 'Applied'
+    }
+
+    if (
+      newStage === 'Resume Shortlisting' ||
+      newStage === 'PPT' ||
+      newStage === 'Online Test' ||
+      newStage === 'Interview'
+    ) {
+      if (
+        newStatus === 'Selected' ||
+        newStatus === 'Rejected'
+      ) {
+        newStatus = 'Shortlisted'
+      }
+    }
+
+    updateApplication(
+      application.id,
+      newStatus,
+      newStage
+    )
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
-
-      {/* Header */}
 
       <header className="border-b border-slate-200 bg-white px-5 py-5">
 
@@ -184,8 +346,6 @@ function ApplicationsManagement() {
 
       <main className="mx-auto max-w-6xl px-5 py-8">
 
-        {/* Error */}
-
         {error && (
 
           <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
@@ -202,8 +362,6 @@ function ApplicationsManagement() {
 
         )}
 
-        {/* Loading */}
-
         {loading ? (
 
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
@@ -215,8 +373,6 @@ function ApplicationsManagement() {
           </div>
 
         ) : applications.length === 0 ? (
-
-          /* Empty state */
 
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
 
@@ -231,8 +387,6 @@ function ApplicationsManagement() {
           </div>
 
         ) : (
-
-          /* Applications */
 
           <div className="space-y-5">
 
@@ -249,6 +403,15 @@ function ApplicationsManagement() {
                     application.drive_id
                   )
 
+                const stageOptions =
+                  getStageOptions(drive)
+
+                const currentStage =
+                  getDefaultStageForStatus(
+                    application,
+                    drive
+                  )
+
                 return (
 
                   <div
@@ -256,11 +419,7 @@ function ApplicationsManagement() {
                     className="rounded-2xl bg-white p-6 shadow-sm"
                   >
 
-                    {/* Top section */}
-
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-
-                      {/* Student */}
 
                       <div>
 
@@ -311,8 +470,6 @@ function ApplicationsManagement() {
 
                       </div>
 
-                      {/* Company */}
-
                       <div className="lg:text-right">
 
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -337,19 +494,21 @@ function ApplicationsManagement() {
 
                         )}
 
+                        {drive?.resume_shortlisting && (
+
+                          <span className="mt-2 inline-block rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+                            Resume Screening Required
+                          </span>
+
+                        )}
+
                       </div>
 
                     </div>
 
-                    {/* Divider */}
-
                     <div className="my-5 border-t border-slate-100" />
 
-                    {/* Application information */}
-
-                    <div className="grid gap-5 md:grid-cols-3">
-
-                      {/* Applied date */}
+                    <div className="grid gap-5 md:grid-cols-4">
 
                       <div>
 
@@ -369,8 +528,6 @@ function ApplicationsManagement() {
 
                       </div>
 
-                      {/* Current status */}
-
                       <div>
 
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -387,7 +544,21 @@ function ApplicationsManagement() {
 
                       </div>
 
-                      {/* Status control */}
+                      <div>
+
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                          Current Stage
+                        </p>
+
+                        <span
+                          className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-semibold ${getStageStyle(
+                            currentStage
+                          )}`}
+                        >
+                          {currentStage}
+                        </span>
+
+                      </div>
 
                       <div>
 
@@ -404,8 +575,8 @@ function ApplicationsManagement() {
                             application.id
                           }
                           onChange={(event) =>
-                            updateStatus(
-                              application.id,
+                            handleStatusChange(
+                              application,
                               event.target.value
                             )
                           }
@@ -430,39 +601,109 @@ function ApplicationsManagement() {
 
                         </select>
 
-                        {updatingId ===
-                          application.id && (
+                      </div>
 
-                          <p className="mt-1 text-xs text-slate-400">
-                            Updating...
+                    </div>
+
+                    <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                        <div>
+
+                          <p className="text-sm font-semibold text-slate-900">
+                            Recruitment Stage
                           </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            Update the student's current position in the recruitment process.
+                          </p>
+
+                        </div>
+
+                        <select
+                          value={
+                            stageOptions.includes(
+                              currentStage
+                            )
+                              ? currentStage
+                              : 'Applied'
+                          }
+                          disabled={
+                            updatingId ===
+                            application.id
+                          }
+                          onChange={(event) =>
+                            handleStageChange(
+                              application,
+                              event.target.value
+                            )
+                          }
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50 sm:w-64"
+                        >
+
+                          {stageOptions.map(
+                            (stage) => (
+
+                              <option
+                                key={stage}
+                                value={stage}
+                              >
+                                {stage}
+                              </option>
+
+                            )
+                          )}
+
+                        </select>
+
+                      </div>
+
+                      {updatingId ===
+                        application.id && (
+
+                        <p className="mt-2 text-xs font-medium text-blue-600">
+                          Updating application...
+                        </p>
+
+                      )}
+
+                    </div>
+
+                    <div className="mt-5 border-t border-slate-100 pt-4">
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+                        <div>
+
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                            Recruitment Progress
+                          </p>
+
+                          <p className="mt-1 text-sm text-slate-600">
+                            {currentStage}
+                          </p>
+
+                        </div>
+
+                        {drive?.id && (
+
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/admin/drive/${drive.id}`
+                              )
+                            }
+                            className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                          >
+                            View Placement Drive →
+                          </button>
 
                         )}
 
                       </div>
 
                     </div>
-
-                    {/* View drive */}
-
-                    {drive?.id && (
-
-                      <div className="mt-5 border-t border-slate-100 pt-4">
-
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/admin/drive/${drive.id}`
-                            )
-                          }
-                          className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                        >
-                          View Placement Drive →
-                        </button>
-
-                      </div>
-
-                    )}
 
                   </div>
 

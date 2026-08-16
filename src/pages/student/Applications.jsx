@@ -151,18 +151,33 @@ function Applications() {
                   )
 
                 /*
-                  The application belongs to
-                  a specific placement drive.
-
-                  We use that drive's
-                  resumeShortlisting value
-                  to construct the correct
-                  application timeline.
+                  Determine whether this
+                  particular placement drive
+                  requires resume shortlisting.
                 */
+
                 const resumeShortlisting =
                   Boolean(
                     drive?.resumeShortlisting
                   )
+
+                /*
+                  current_stage comes directly
+                  from the backend.
+
+                  Examples:
+
+                  Applied
+                  Resume Shortlisting
+                  PPT
+                  Online Test
+                  Interview
+                  Result
+                */
+
+                const currentStage =
+                  application.current_stage ||
+                  'Applied'
 
                 return (
                   <div
@@ -258,6 +273,11 @@ function Applications() {
                         status={
                           application.status
                         }
+
+                        currentStage={
+                          currentStage
+                        }
+
                         resumeShortlisting={
                           resumeShortlisting
                         }
