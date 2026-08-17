@@ -11,7 +11,6 @@ function StudentDashboard() {
   const { student } = useStudent()
   const { applications } = useApplications()
 
-
   const formatDate = (date) => {
     if (!date) {
       return 'Not specified'
@@ -32,6 +31,11 @@ function StudentDashboard() {
     })
   }
 
+  /*
+    Load all published placement drives
+    and calculate eligibility for the
+    current student.
+  */
   const opportunities = drives
     .filter(
       (drive) =>
@@ -49,18 +53,28 @@ function StudentDashboard() {
       }
     })
 
+  /*
+    Only eligible opportunities are counted
+    as eligible opportunities.
+  */
   const eligibleOpportunities =
     opportunities.filter(
       (opportunity) =>
         opportunity.eligibility.eligible
     )
 
+  /*
+    Upcoming events are now generated ONLY
+    for eligible placement drives.
+
+    This prevents students from seeing
+    PPT / OT / Interview events for drives
+    they are not eligible to apply for.
+  */
   const upcomingEvents = opportunities
     .filter(
       (opportunity) =>
-        opportunity.ppt ||
-        opportunity.ot ||
-        opportunity.interview
+        opportunity.eligibility.eligible
     )
     .flatMap((opportunity) => {
       const events = []
@@ -73,8 +87,6 @@ function StudentDashboard() {
           type: 'Pre-Placement Talk',
           date: opportunity.ppt,
           icon: '📅',
-          eligible:
-            opportunity.eligibility.eligible,
         })
       }
 
@@ -86,8 +98,6 @@ function StudentDashboard() {
           type: 'Online Test',
           date: opportunity.ot,
           icon: '💻',
-          eligible:
-            opportunity.eligibility.eligible,
         })
       }
 
@@ -99,8 +109,6 @@ function StudentDashboard() {
           type: 'Interview',
           date: opportunity.interview,
           icon: '🎯',
-          eligible:
-            opportunity.eligibility.eligible,
         })
       }
 
@@ -113,6 +121,8 @@ function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
+
+      {/* Header */}
 
       <header className="bg-white px-5 py-6 shadow-sm">
 
@@ -152,6 +162,8 @@ function StudentDashboard() {
 
       <main className="mx-auto max-w-5xl space-y-6 px-5 py-6">
 
+        {/* Overview */}
+
         <section className="grid grid-cols-2 gap-4">
 
           <div className="rounded-2xl bg-white p-5 shadow-sm">
@@ -188,6 +200,8 @@ function StudentDashboard() {
 
         </section>
 
+        {/* Placement Opportunities */}
+
         <section>
 
           <div className="mb-4 flex items-center justify-between">
@@ -221,123 +235,135 @@ function StudentDashboard() {
 
             ) : (
 
-              opportunities.map((opportunity) => (
+              opportunities.map(
+                (opportunity) => (
 
-                <div
-                  key={opportunity.id}
-                  className="rounded-2xl bg-white p-5 shadow-sm"
-                >
+                  <div
+                    key={opportunity.id}
+                    className="rounded-2xl bg-white p-5 shadow-sm"
+                  >
 
-                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4">
 
-                    <div>
+                      <div>
 
-                      <h3 className="text-lg font-bold text-slate-900">
-                        {opportunity.companyName}
-                      </h3>
+                        <h3 className="text-lg font-bold text-slate-900">
+                          {opportunity.companyName}
+                        </h3>
 
-                      <p className="mt-1 text-sm text-slate-500">
-                        {opportunity.role}
-                      </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {opportunity.role}
+                        </p>
+
+                      </div>
+
+                      {opportunity.eligibility.eligible ? (
+
+                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                          Eligible
+                        </span>
+
+                      ) : (
+
+                        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                          Not Eligible
+                        </span>
+
+                      )}
 
                     </div>
 
-                    {opportunity.eligibility.eligible ? (
+                    {/* CTC and Location */}
 
-                      <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                        Eligible
-                      </span>
+                    <div className="mt-4">
 
-                    ) : (
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
 
-                      <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                        Not Eligible
-                      </span>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {opportunity.ctc ||
+                            'CTC not specified'}
+                        </p>
 
-                    )}
+                        {opportunity.location && (
 
-                  </div>
+                          <p className="text-xs text-slate-500">
+                            📍 {opportunity.location}
+                          </p>
 
-                  <div className="mt-4">
+                        )}
 
-                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                      </div>
 
-                      <p className="text-sm font-semibold text-slate-900">
-                        {opportunity.ctc ||
-                          'CTC not specified'}
-                      </p>
+                      {/* Deadline */}
 
-                      {opportunity.location && (
+                      {opportunity.deadline && (
 
-                        <p className="text-xs text-slate-500">
-                          📍 {opportunity.location}
+                        <p className="mt-2 text-xs text-red-500">
+                          Deadline:{' '}
+                          {formatDate(
+                            opportunity.deadline
+                          )}
                         </p>
 
                       )}
 
                     </div>
 
-                    {opportunity.deadline && (
+                    {/* Eligibility Reasons */}
 
-                      <p className="mt-2 text-xs text-red-500">
-                        Deadline:{' '}
-                        {formatDate(
-                          opportunity.deadline
-                        )}
-                      </p>
+                    {!opportunity.eligibility.eligible && (
+
+                      <div className="mt-4 rounded-xl bg-red-50 p-4">
+
+                        <p className="text-xs font-semibold text-red-700">
+                          Why you're not eligible
+                        </p>
+
+                        <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-red-600">
+
+                          {opportunity.eligibility.reasons.map(
+                            (reason, index) => (
+
+                              <li
+                                key={`${reason}-${index}`}
+                              >
+                                {reason}
+                              </li>
+
+                            )
+                          )}
+
+                        </ul>
+
+                      </div>
 
                     )}
 
+                    {/* View Opportunity */}
+
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/student/opportunity/${opportunity.id}`
+                        )
+                      }
+                      className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    >
+                      View Opportunity
+                    </button>
+
                   </div>
 
-                  {!opportunity.eligibility.eligible && (
-
-                    <div className="mt-4 rounded-xl bg-red-50 p-4">
-
-                      <p className="text-xs font-semibold text-red-700">
-                        Why you're not eligible
-                      </p>
-
-                      <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-red-600">
-
-                        {opportunity.eligibility.reasons.map(
-                          (reason, index) => (
-
-                            <li
-                              key={`${reason}-${index}`}
-                            >
-                              {reason}
-                            </li>
-
-                          )
-                        )}
-
-                      </ul>
-
-                    </div>
-
-                  )}
-
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/student/opportunity/${opportunity.id}`
-                      )
-                    }
-                    className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    View Opportunity
-                  </button>
-
-                </div>
-
-              ))
+                )
+              )
 
             )}
 
           </div>
 
         </section>
+
+        {/* Upcoming Events */}
 
         <section>
 
@@ -385,28 +411,10 @@ function StudentDashboard() {
 
                       <div>
 
-                        <div className="flex flex-wrap items-center gap-2">
-
-                          <p className="font-semibold text-slate-900">
-                            {event.company}{' '}
-                            {event.type}
-                          </p>
-
-                          {event.eligible ? (
-
-                            <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                              Eligible
-                            </span>
-
-                          ) : (
-
-                            <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
-                              Not Eligible
-                            </span>
-
-                          )}
-
-                        </div>
+                        <p className="font-semibold text-slate-900">
+                          {event.company}{' '}
+                          {event.type}
+                        </p>
 
                         <p className="mt-1 text-sm text-slate-500">
                           {formatDate(event.date)}
@@ -442,6 +450,8 @@ function StudentDashboard() {
         </section>
 
       </main>
+
+      {/* Bottom Navigation */}
 
       <nav className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white">
 

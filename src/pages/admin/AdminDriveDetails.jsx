@@ -1,25 +1,42 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { withdrawDrive } from '../../services/api'
 
-const API_BASE_URL = 'http://127.0.0.1:8000'
+
+const API_BASE_URL =
+  'http://127.0.0.1:8000'
+
 
 function AdminDriveDetails() {
   const navigate = useNavigate()
   const { id } = useParams()
 
-  const [drive, setDrive] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [drive, setDrive] =
+    useState(null)
+
+  const [loading, setLoading] =
+    useState(true)
+
+  const [error, setError] =
+    useState('')
+
+  const [withdrawing, setWithdrawing] =
+    useState(false)
+
 
   useEffect(() => {
+
     const loadDrive = async () => {
+
       try {
+
         setLoading(true)
         setError('')
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/drives/${id}`
-        )
+        const response =
+          await fetch(
+            `${API_BASE_URL}/api/drives/${id}`
+          )
 
         if (!response.ok) {
           throw new Error(
@@ -27,7 +44,8 @@ function AdminDriveDetails() {
           )
         }
 
-        const data = await response.json()
+        const data =
+          await response.json()
 
         console.log(
           'Admin drive details:',
@@ -35,7 +53,9 @@ function AdminDriveDetails() {
         )
 
         setDrive(data)
+
       } catch (error) {
+
         console.error(
           'Failed to load drive:',
           error
@@ -45,20 +65,28 @@ function AdminDriveDetails() {
           error.message ||
             'Failed to load placement drive.'
         )
+
       } finally {
+
         setLoading(false)
+
       }
+
     }
 
     loadDrive()
+
   }, [id])
 
+
   const formatDate = (date) => {
+
     if (!date) {
       return 'Not specified'
     }
 
-    const parsedDate = new Date(date)
+    const parsedDate =
+      new Date(date)
 
     if (
       Number.isNaN(
@@ -80,21 +108,90 @@ function AdminDriveDetails() {
     )
   }
 
+
+  const handleWithdraw = async () => {
+
+    if (!drive) {
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        `Withdraw ${drive.company_name} - ${drive.role}?\n\n` +
+        `The drive will no longer be available to students.\n\n` +
+        `Existing applications will be preserved.`
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+
+      setWithdrawing(true)
+      setError('')
+
+      const updatedDrive =
+        await withdrawDrive(
+          drive.id
+        )
+
+      setDrive(
+        updatedDrive
+      )
+
+      alert(
+        'Placement drive withdrawn successfully.'
+      )
+
+    } catch (error) {
+
+      console.error(
+        'Failed to withdraw drive:',
+        error
+      )
+
+      setError(
+        error.message ||
+          'Failed to withdraw placement drive.'
+      )
+
+    } finally {
+
+      setWithdrawing(false)
+
+    }
+
+  }
+
+
   if (loading) {
+
     return (
+
       <div className="min-h-screen bg-slate-50 p-6">
+
         <div className="mx-auto max-w-4xl rounded-2xl bg-white p-10 text-center shadow-sm">
+
           <p className="text-sm text-slate-500">
             Loading placement drive...
           </p>
+
         </div>
+
       </div>
+
     )
+
   }
 
-  if (error || !drive) {
+
+  if (error && !drive) {
+
     return (
+
       <div className="min-h-screen bg-slate-50 p-6">
+
         <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 text-center shadow-sm">
 
           <h1 className="text-xl font-bold text-slate-900">
@@ -116,11 +213,21 @@ function AdminDriveDetails() {
           </button>
 
         </div>
+
       </div>
+
     )
+
   }
 
+
+  if (!drive) {
+    return null
+  }
+
+
   return (
+
     <div className="min-h-screen bg-slate-50 pb-10">
 
       <header className="border-b border-slate-200 bg-white px-6 py-5">
@@ -135,6 +242,7 @@ function AdminDriveDetails() {
           >
             ← Back to Admin Dashboard
           </button>
+
 
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 
@@ -154,11 +262,14 @@ function AdminDriveDetails() {
 
             </div>
 
+
             <span
               className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
                 drive.status === 'Published'
                   ? 'bg-green-100 text-green-700'
-                  : 'bg-yellow-100 text-yellow-700'
+                  : drive.status === 'Withdrawn'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-yellow-100 text-yellow-700'
               }`}
             >
               {drive.status}
@@ -170,7 +281,27 @@ function AdminDriveDetails() {
 
       </header>
 
+
       <main className="mx-auto max-w-5xl space-y-6 px-5 py-8">
+
+        {/* Error */}
+
+        {error && (
+
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+
+            <p className="font-semibold text-red-700">
+              Action failed
+            </p>
+
+            <p className="mt-1 text-sm text-red-600">
+              {error}
+            </p>
+
+          </div>
+
+        )}
+
 
         {/* Company Details */}
 
@@ -183,6 +314,7 @@ function AdminDriveDetails() {
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
 
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 Company
               </p>
@@ -190,9 +322,12 @@ function AdminDriveDetails() {
               <p className="mt-1 font-semibold text-slate-900">
                 {drive.company_name}
               </p>
+
             </div>
 
+
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 Role
               </p>
@@ -200,19 +335,26 @@ function AdminDriveDetails() {
               <p className="mt-1 font-semibold text-slate-900">
                 {drive.role}
               </p>
+
             </div>
 
+
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 CTC
               </p>
 
               <p className="mt-1 font-semibold text-slate-900">
-                {drive.ctc || 'Not specified'}
+                {drive.ctc ||
+                  'Not specified'}
               </p>
+
             </div>
 
+
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 Location
               </p>
@@ -221,11 +363,13 @@ function AdminDriveDetails() {
                 {drive.location ||
                   'Not specified'}
               </p>
+
             </div>
 
           </div>
 
         </section>
+
 
         {/* Eligibility */}
 
@@ -238,6 +382,7 @@ function AdminDriveDetails() {
           <div className="mt-5 space-y-4">
 
             <div className="flex justify-between gap-4">
+
               <span className="text-sm text-slate-600">
                 Minimum CGPA
               </span>
@@ -245,9 +390,12 @@ function AdminDriveDetails() {
               <span className="font-semibold text-slate-900">
                 {drive.min_cgpa}
               </span>
+
             </div>
 
+
             <div className="flex justify-between gap-4">
+
               <span className="text-sm text-slate-600">
                 Minimum 10th Percentage
               </span>
@@ -255,9 +403,12 @@ function AdminDriveDetails() {
               <span className="font-semibold text-slate-900">
                 {drive.min_tenth}%
               </span>
+
             </div>
 
+
             <div className="flex justify-between gap-4">
+
               <span className="text-sm text-slate-600">
                 Minimum 12th Percentage
               </span>
@@ -265,9 +416,12 @@ function AdminDriveDetails() {
               <span className="font-semibold text-slate-900">
                 {drive.min_twelfth}%
               </span>
+
             </div>
 
+
             <div className="flex justify-between gap-4">
+
               <span className="text-sm text-slate-600">
                 Maximum Active Backlogs
               </span>
@@ -275,9 +429,12 @@ function AdminDriveDetails() {
               <span className="font-semibold text-slate-900">
                 {drive.max_backlogs}
               </span>
+
             </div>
 
+
             <div className="flex justify-between gap-4">
+
               <span className="text-sm text-slate-600">
                 Eligible Branches
               </span>
@@ -286,19 +443,26 @@ function AdminDriveDetails() {
                 {drive.branches ||
                   'Not specified'}
               </span>
+
             </div>
 
+
             <div className="flex justify-between gap-4">
+
               <span className="text-sm text-slate-600">
                 Gender
               </span>
 
               <span className="font-semibold text-slate-900">
-                {drive.gender || 'Any'}
+                {drive.gender ||
+                  'Any'}
               </span>
+
             </div>
 
+
             <div className="flex justify-between gap-4">
+
               <span className="text-sm text-slate-600">
                 Graduation Year
               </span>
@@ -307,11 +471,13 @@ function AdminDriveDetails() {
                 {drive.graduation_year ||
                   'Any'}
               </span>
+
             </div>
 
           </div>
 
         </section>
+
 
         {/* Recruitment Schedule */}
 
@@ -320,6 +486,7 @@ function AdminDriveDetails() {
           <h2 className="text-lg font-bold text-slate-900">
             Recruitment Schedule
           </h2>
+
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
 
@@ -343,6 +510,7 @@ function AdminDriveDetails() {
 
                 </div>
 
+
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
                     drive.resume_shortlisting
@@ -357,16 +525,21 @@ function AdminDriveDetails() {
 
               </div>
 
+
               {drive.resume_shortlisting && (
+
                 <p className="mt-2 text-xs text-slate-500">
                   Resumes will be reviewed before
                   the next recruitment stage.
                 </p>
+
               )}
 
             </div>
 
+
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 Registration Deadline
               </p>
@@ -376,9 +549,12 @@ function AdminDriveDetails() {
                   drive.deadline
                 )}
               </p>
+
             </div>
 
+
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 Pre-Placement Talk
               </p>
@@ -388,9 +564,12 @@ function AdminDriveDetails() {
                   drive.ppt
                 )}
               </p>
+
             </div>
 
+
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 Online Test
               </p>
@@ -400,9 +579,12 @@ function AdminDriveDetails() {
                   drive.online_test
                 )}
               </p>
+
             </div>
 
+
             <div className="rounded-xl bg-slate-50 p-4">
+
               <p className="text-xs text-slate-500">
                 Interview
               </p>
@@ -412,11 +594,13 @@ function AdminDriveDetails() {
                   drive.interview
                 )}
               </p>
+
             </div>
 
           </div>
 
         </section>
+
 
         {/* Registration & Documents */}
 
@@ -425,6 +609,7 @@ function AdminDriveDetails() {
           <h2 className="text-lg font-bold text-slate-900">
             Registration & Documents
           </h2>
+
 
           <div className="mt-5 space-y-5">
 
@@ -437,7 +622,9 @@ function AdminDriveDetails() {
               {drive.registration_link ? (
 
                 <a
-                  href={drive.registration_link}
+                  href={
+                    drive.registration_link
+                  }
                   target="_blank"
                   rel="noreferrer"
                   className="mt-1 block break-all text-sm font-medium text-blue-600 hover:text-blue-700"
@@ -455,6 +642,7 @@ function AdminDriveDetails() {
 
             </div>
 
+
             <div>
 
               <p className="text-sm font-medium text-slate-600">
@@ -467,10 +655,12 @@ function AdminDriveDetails() {
               </p>
 
               {drive.jd && (
+
                 <p className="mt-2 text-xs text-slate-400">
-                  JD file viewing will be connected to
-                  file storage later.
+                  JD file viewing will be connected
+                  to file storage later.
                 </p>
+
               )}
 
             </div>
@@ -478,6 +668,7 @@ function AdminDriveDetails() {
           </div>
 
         </section>
+
 
         {/* Actions */}
 
@@ -492,6 +683,7 @@ function AdminDriveDetails() {
             ← Back
           </button>
 
+
           <div className="flex flex-col gap-3 sm:flex-row">
 
             <button
@@ -505,9 +697,32 @@ function AdminDriveDetails() {
               Edit Drive
             </button>
 
+
+            {drive.status ===
+              'Published' && (
+
+              <button
+                onClick={
+                  handleWithdraw
+                }
+                disabled={
+                  withdrawing
+                }
+                className="rounded-lg border border-red-300 bg-red-50 px-6 py-3 font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {withdrawing
+                  ? 'Withdrawing...'
+                  : 'Withdraw Drive'}
+              </button>
+
+            )}
+
+
             <button
               onClick={() =>
-                navigate('/admin/applications')
+                navigate(
+                  '/admin/applications'
+                )
               }
               className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
             >
@@ -521,7 +736,9 @@ function AdminDriveDetails() {
       </main>
 
     </div>
+
   )
 }
+
 
 export default AdminDriveDetails

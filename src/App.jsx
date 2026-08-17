@@ -1,4 +1,8 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+} from 'react-router-dom'
 
 import Login from './pages/auth/Login'
 
@@ -15,6 +19,8 @@ import DrivePreview from './pages/admin/DrivePreview'
 import AdminDriveDetails from './pages/admin/AdminDriveDetails'
 import EditDrive from './pages/admin/EditDrive'
 import ApplicationsManagement from './pages/admin/ApplicationsManagement'
+import WithdrawnDrives from './pages/admin/WithdrawnDrives'
+import UpcomingEvents from './pages/admin/UpcomingEvents'
 
 import { PlacementProvider } from './context/PlacementContext'
 import { StudentProvider } from './context/StudentContext'
@@ -24,22 +30,30 @@ import { ReminderProvider } from './context/ReminderContext'
 function App() {
   return (
     <StudentProvider>
+
       <PlacementProvider>
+
         <ApplicationProvider>
+
           <ReminderProvider>
 
             <BrowserRouter>
 
               <Routes>
 
-                {/* Login */}
+                {/* =========================
+                    LOGIN
+                ========================= */}
 
                 <Route
                   path="/"
                   element={<Login />}
                 />
 
-                {/* Student */}
+
+                {/* =========================
+                    STUDENT
+                ========================= */}
 
                 <Route
                   path="/student"
@@ -71,42 +85,90 @@ function App() {
                   element={<OpportunityDetails />}
                 />
 
-                {/* Admin */}
+
+                {/* =========================
+                    ADMIN DASHBOARD
+                ========================= */}
 
                 <Route
                   path="/admin"
                   element={<AdminDashboard />}
                 />
 
+
+                {/* =========================
+                    ADMIN CREATE DRIVE
+                ========================= */}
+
                 <Route
                   path="/admin/create-drive"
                   element={<CreateDrive />}
                 />
+
+
+                {/* =========================
+                    ADMIN DRIVE PREVIEW
+                ========================= */}
 
                 <Route
                   path="/admin/drive-preview"
                   element={<DrivePreview />}
                 />
 
-                {/* Admin Drive Details */}
+
+                {/* =========================
+                    ADMIN DRIVE DETAILS
+                ========================= */}
 
                 <Route
                   path="/admin/drive/:id"
                   element={<AdminDriveDetails />}
                 />
 
-                {/* Admin Edit Drive */}
+
+                {/* =========================
+                    ADMIN EDIT DRIVE
+                ========================= */}
 
                 <Route
                   path="/admin/edit-drive/:id"
                   element={<EditDrive />}
                 />
 
-                {/* Admin Applications */}
+
+                {/* =========================
+                    ADMIN APPLICATIONS
+                ========================= */}
 
                 <Route
                   path="/admin/applications"
-                  element={<ApplicationsManagement />}
+                  element={
+                    <ApplicationsManagement />
+                  }
+                />
+
+
+                {/* =========================
+                    ADMIN UPCOMING EVENTS
+                ========================= */}
+
+                <Route
+                  path="/admin/upcoming-events"
+                  element={
+                    <UpcomingEvents />
+                  }
+                />
+
+
+                {/* =========================
+                    ADMIN WITHDRAWN DRIVES
+                ========================= */}
+
+                <Route
+                  path="/admin/withdrawn-drives"
+                  element={
+                    <WithdrawnDrives />
+                  }
                 />
 
               </Routes>
@@ -114,8 +176,11 @@ function App() {
             </BrowserRouter>
 
           </ReminderProvider>
+
         </ApplicationProvider>
+
       </PlacementProvider>
+
     </StudentProvider>
   )
 }

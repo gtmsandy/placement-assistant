@@ -49,7 +49,6 @@ async function request(
     }
 
     return data
-
   } catch (error) {
     console.error(
       `API request failed: ${endpoint}`,
@@ -156,6 +155,33 @@ export async function updateDrive(
       body: JSON.stringify(
         drive
       ),
+    }
+  )
+}
+
+
+/*
+  Withdraw a placement drive.
+
+  The drive is NOT deleted.
+  Its status is changed to
+  "Withdrawn".
+
+  Existing applications remain
+  stored in the backend.
+*/
+export async function withdrawDrive(
+  driveId
+) {
+  console.log(
+    'Withdrawing placement drive:',
+    driveId
+  )
+
+  return updateDrive(
+    driveId,
+    {
+      status: 'Withdrawn',
     }
   )
 }

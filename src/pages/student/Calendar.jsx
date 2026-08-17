@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import { usePlacements } from '../../context/PlacementContext'
 import { useStudent } from '../../context/StudentContext'
 import { checkEligibility } from '../../services/eligibilityService'
@@ -19,10 +20,25 @@ function Calendar() {
           drive.status === 'Published'
       )
       .forEach((drive) => {
-        const eligibility = checkEligibility(
-          student,
-          drive
-        )
+        const eligibility =
+          checkEligibility(
+            student,
+            drive
+          )
+
+        /*
+          Only show events belonging to
+          placement drives for which the
+          current student is eligible.
+
+          Ineligible drives remain visible
+          on the Opportunities page, but
+          their recruitment events are not
+          shown in the student's calendar.
+        */
+        if (!eligibility.eligible) {
+          return
+        }
 
         if (drive.deadline) {
           result.push({
@@ -30,11 +46,10 @@ function Calendar() {
             driveId: drive.id,
             company: drive.companyName,
             type: 'Registration Deadline',
-            title: `${drive.companyName} Registration Deadline`,
+            title:
+              `${drive.companyName} Registration Deadline`,
             date: drive.deadline,
             icon: '📝',
-            eligible: eligibility.eligible,
-            reasons: eligibility.reasons || [],
           })
         }
 
@@ -44,11 +59,10 @@ function Calendar() {
             driveId: drive.id,
             company: drive.companyName,
             type: 'PPT',
-            title: `${drive.companyName} Pre-Placement Talk`,
+            title:
+              `${drive.companyName} Pre-Placement Talk`,
             date: drive.ppt,
             icon: '🎤',
-            eligible: eligibility.eligible,
-            reasons: eligibility.reasons || [],
           })
         }
 
@@ -58,11 +72,10 @@ function Calendar() {
             driveId: drive.id,
             company: drive.companyName,
             type: 'Online Test',
-            title: `${drive.companyName} Online Test`,
+            title:
+              `${drive.companyName} Online Test`,
             date: drive.ot,
             icon: '💻',
-            eligible: eligibility.eligible,
-            reasons: eligibility.reasons || [],
           })
         }
 
@@ -72,18 +85,18 @@ function Calendar() {
             driveId: drive.id,
             company: drive.companyName,
             type: 'Interview',
-            title: `${drive.companyName} Interview`,
+            title:
+              `${drive.companyName} Interview`,
             date: drive.interview,
             icon: '👔',
-            eligible: eligibility.eligible,
-            reasons: eligibility.reasons || [],
           })
         }
       })
 
     return result.sort(
       (a, b) =>
-        new Date(a.date) - new Date(b.date)
+        new Date(a.date) -
+        new Date(b.date)
     )
   }, [drives, student])
 
@@ -92,24 +105,35 @@ function Calendar() {
       return 'Date not specified'
     }
 
-    const parsedDate = new Date(date)
+    const parsedDate =
+      new Date(date)
 
-    if (Number.isNaN(parsedDate.getTime())) {
+    if (
+      Number.isNaN(
+        parsedDate.getTime()
+      )
+    ) {
       return date
     }
 
-    return parsedDate.toLocaleString('en-IN', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
+    return parsedDate.toLocaleString(
+      'en-IN',
+      {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }
+    )
   }
 
   const getEventStyle = (type) => {
-    if (type === 'Registration Deadline') {
+    if (
+      type ===
+      'Registration Deadline'
+    ) {
       return 'bg-red-100 text-red-700'
     }
 
@@ -117,7 +141,9 @@ function Calendar() {
       return 'bg-purple-100 text-purple-700'
     }
 
-    if (type === 'Online Test') {
+    if (
+      type === 'Online Test'
+    ) {
       return 'bg-blue-100 text-blue-700'
     }
 
@@ -128,13 +154,17 @@ function Calendar() {
     return 'bg-slate-100 text-slate-700'
   }
 
-  const upcomingPpts = events.filter(
-    (event) => event.type === 'PPT'
-  ).length
+  const upcomingPpts =
+    events.filter(
+      (event) =>
+        event.type === 'PPT'
+    ).length
 
-  const interviews = events.filter(
-    (event) => event.type === 'Interview'
-  ).length
+  const interviews =
+    events.filter(
+      (event) =>
+        event.type === 'Interview'
+    ).length
 
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
@@ -149,7 +179,7 @@ function Calendar() {
             onClick={() =>
               navigate('/student')
             }
-            className="text-sm font-medium text-blue-600"
+            className="text-sm font-medium text-blue-600 hover:text-blue-700"
           >
             ← Back to Dashboard
           </button>
@@ -163,14 +193,17 @@ function Calendar() {
               </h1>
 
               <p className="mt-1 text-sm text-slate-500">
-                Keep track of all placement deadlines and recruitment events.
+                Keep track of your placement
+                deadlines and recruitment events.
               </p>
 
             </div>
 
             <button
               onClick={() =>
-                navigate('/student/reminders')
+                navigate(
+                  '/student/reminders'
+                )
               }
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
@@ -197,6 +230,10 @@ function Calendar() {
 
             <p className="mt-2 text-3xl font-bold text-blue-600">
               {events.length}
+            </p>
+
+            <p className="mt-1 text-xs text-slate-400">
+              For eligible opportunities
             </p>
 
           </div>
@@ -238,8 +275,8 @@ function Calendar() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-500">
-              All published placement events are shown here.
-              Eligibility only affects whether you can apply.
+              Events from placement drives
+              for which you are eligible.
             </p>
 
           </div>
@@ -253,8 +290,9 @@ function Calendar() {
               </p>
 
               <p className="mt-2 text-sm text-slate-500">
-                Events will appear here when placement
-                drives are scheduled.
+                Relevant recruitment events
+                will appear here when eligible
+                placement drives are scheduled.
               </p>
 
             </div>
@@ -263,87 +301,67 @@ function Calendar() {
 
             <div className="divide-y divide-slate-100">
 
-              {events.map((event) => (
+              {events.map(
+                (event) => (
 
-                <div
-                  key={event.id}
-                  className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
-                >
+                  <div
+                    key={event.id}
+                    className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+                  >
 
-                  <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4">
 
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
-                      {event.icon}
-                    </div>
-
-                    <div className="flex-1">
-
-                      <div className="flex flex-wrap items-center gap-2">
-
-                        <h3 className="font-semibold text-slate-900">
-                          {event.title}
-                        </h3>
-
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getEventStyle(
-                            event.type
-                          )}`}
-                        >
-                          {event.type}
-                        </span>
-
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
+                        {event.icon}
                       </div>
 
-                      <p className="mt-2 text-sm text-slate-500">
-                        {formatDate(event.date)}
-                      </p>
+                      <div className="flex-1">
 
-                      {/* Eligibility status */}
+                        <div className="flex flex-wrap items-center gap-2">
 
-                      {event.eligible ? (
+                          <h3 className="font-semibold text-slate-900">
+                            {event.title}
+                          </h3>
+
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${getEventStyle(
+                              event.type
+                            )}`}
+                          >
+                            {event.type}
+                          </span>
+
+                        </div>
+
+                        <p className="mt-2 text-sm text-slate-500">
+                          {formatDate(
+                            event.date
+                          )}
+                        </p>
 
                         <span className="mt-2 inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                           ✓ You are eligible
                         </span>
 
-                      ) : (
-
-                        <div className="mt-2">
-
-                          <span className="inline-block rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                            ✕ You are not eligible
-                          </span>
-
-                          {event.reasons.length > 0 && (
-
-                            <p className="mt-2 text-xs text-red-600">
-                              {event.reasons[0]}
-                            </p>
-
-                          )}
-
-                        </div>
-
-                      )}
+                      </div>
 
                     </div>
 
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/student/opportunity/${event.driveId}`
+                        )
+                      }
+                      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      View Drive
+                    </button>
+
                   </div>
 
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/student/opportunity/${event.driveId}`
-                      )
-                    }
-                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    View Drive
-                  </button>
-
-                </div>
-
-              ))}
+                )
+              )}
 
             </div>
 

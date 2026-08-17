@@ -89,9 +89,6 @@ function mapDriveFromApi(drive) {
     /*
       Backend currently stores JD
       as text.
-
-      Later this can be replaced
-      with a real file-storage URL.
     */
     jd:
       drive.jd || '',
@@ -175,8 +172,8 @@ function mapDriveToApi(drive) {
       drive.registrationLink || '',
 
     /*
-      Backend currently stores
-      JD as text.
+      Backend currently stores JD
+      as text.
 
       If a File object is supplied,
       only its filename is sent.
@@ -188,6 +185,69 @@ function mapDriveToApi(drive) {
 
     status:
       drive.status || 'Published',
+  }
+}
+
+
+/*
+  Fetch the latest placement drives
+  from the FastAPI backend and update
+  the React context.
+
+  This function is reusable after:
+  - Creating a drive
+  - Editing a drive
+  - Withdrawing a drive
+  - Republishing a drive
+*/
+async function fetchAndSetDrives(
+  setDrives,
+  setLoading,
+  setError
+) {
+  try {
+    setLoading(true)
+    setError(null)
+
+    const apiDrives =
+      await getDrives()
+
+    console.log(
+      'Placement drives refreshed:',
+      apiDrives
+    )
+
+    const mappedDrives =
+      apiDrives.map(
+        mapDriveFromApi
+      )
+
+    console.log(
+      'Mapped placement drives:',
+      mappedDrives
+    )
+
+    setDrives(
+      mappedDrives
+    )
+
+    return mappedDrives
+
+  } catch (error) {
+    console.error(
+      'Failed to load placement drives:',
+      error
+    )
+
+    setError(
+      error.message ||
+        'Failed to load placement drives'
+    )
+
+    throw error
+
+  } finally {
+    setLoading(false)
   }
 }
 
@@ -206,55 +266,46 @@ export function PlacementProvider({
 
 
   /*
-    Load all placement drives
-    from the FastAPI backend.
+    Initial load.
+
+    This runs once when the
+    PlacementProvider starts.
   */
   useEffect(() => {
-    async function loadDrives() {
-      try {
-        setLoading(true)
-        setError(null)
-
-        const apiDrives =
-          await getDrives()
-
-        console.log(
-          'Placement drives loaded:',
-          apiDrives
-        )
-
-        const mappedDrives =
-          apiDrives.map(
-            mapDriveFromApi
-          )
-
-        console.log(
-          'Mapped placement drives:',
-          mappedDrives
-        )
-
-        setDrives(
-          mappedDrives
-        )
-
-      } catch (error) {
-        console.error(
-          'Failed to load placement drives:',
-          error
-        )
-
-        setError(
-          error.message ||
-            'Failed to load placement drives'
-        )
-
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadDrives()
+    fetchAndSetDrives(
+      setDrives,
+      setLoading,
+      setError
+    ).catch(() => {
+      /*
+        The error has already been
+        stored in PlacementContext.
+      */
+    })
   }, [])
+
+
+  /*
+    Public refresh function.
+
+    Any page/component can call:
+
+      const { refreshDrives } =
+        usePlacements()
+
+      await refreshDrives()
+
+    This ensures the UI always gets
+    the latest backend state.
+  */
+  const refreshDrives =
+    async () => {
+      return fetchAndSetDrives(
+        setDrives,
+        setLoading,
+        setError
+      )
+    }
 
 
   /*
@@ -281,19 +332,20 @@ export function PlacementProvider({
           createdDrive
         )
 
-        const mappedDrive =
-          mapDriveFromApi(
-            createdDrive
-          )
+        /*
+          Instead of manually adding the
+          returned drive to the existing
+          React state, refresh everything
+          from the backend.
 
-        setDrives(
-          (previous) => [
-            ...previous,
-            mappedDrive,
-          ]
+          This keeps the frontend state
+          synchronized with the database.
+        */
+        await refreshDrives()
+
+        return mapDriveFromApi(
+          createdDrive
         )
-
-        return mappedDrive
 
       } catch (error) {
         console.error(
@@ -310,8 +362,13 @@ export function PlacementProvider({
     <PlacementContext.Provider
       value={{
         drives,
+
         addDrive,
+
+        refreshDrives,
+
         loading,
+
         error,
       }}
     >
