@@ -271,14 +271,14 @@ def update_application_status(
         )
 
     if (
-        status in ["Selected", "Rejected"]
+        status == "Selected"
         and current_stage != "Result"
     ):
         raise HTTPException(
             status_code=400,
             detail=(
-                "Selected or Rejected applications "
-                "must have Result as the current stage"
+                "Selected applications must "
+                "have Result as the current stage"
             ),
         )
 

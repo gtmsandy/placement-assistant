@@ -158,11 +158,6 @@ function ApplicationsManagement() {
     return 'bg-slate-100 text-slate-700'
   }
 
-  /*
-    Build the recruitment stages
-    according to whether resume
-    shortlisting is required.
-  */
   const getStageOptions = (
     drive
   ) => {
@@ -188,14 +183,6 @@ function ApplicationsManagement() {
     return options
   }
 
-  /*
-    Determine the stage currently
-    stored for the application.
-
-    Important:
-    We DO NOT automatically turn
-    Shortlisted into Result.
-  */
   const getCurrentStage = (
     application,
     drive
@@ -212,11 +199,6 @@ function ApplicationsManagement() {
     ) {
       return stage
     }
-
-    /*
-      Backward compatibility for old
-      application records.
-    */
 
     if (
       application.status ===
@@ -307,18 +289,6 @@ function ApplicationsManagement() {
       }
     }
 
-  /*
-    Change the overall application
-    status.
-
-    IMPORTANT:
-
-    Rejected does NOT automatically
-    move the student to Result.
-
-    It keeps the student's current
-    recruitment stage.
-  */
   const handleStatusChange = (
     application,
     newStatus
@@ -333,29 +303,12 @@ function ApplicationsManagement() {
         drive
       )
 
-    /*
-      Selected always means the
-      complete recruitment process
-      has finished.
-    */
     if (
       newStatus === 'Selected'
     ) {
       newStage = 'Result'
     }
 
-    /*
-      Rejected keeps the current
-      recruitment stage.
-
-      Example:
-
-      PPT + Rejected
-      → PPT remains the rejected stage.
-
-      Online Test + Rejected
-      → Online Test remains the rejected stage.
-    */
     if (
       newStatus === 'Rejected'
     ) {
@@ -370,23 +323,12 @@ function ApplicationsManagement() {
       }
     }
 
-    /*
-      If status changes back to Applied,
-      reset the recruitment stage.
-    */
     if (
       newStatus === 'Applied'
     ) {
       newStage = 'Applied'
     }
 
-    /*
-      Shortlisted should represent an
-      active recruitment process.
-
-      Preserve the existing stage unless
-      the application has never progressed.
-    */
     if (
       newStatus === 'Shortlisted'
     ) {
@@ -408,11 +350,6 @@ function ApplicationsManagement() {
     )
   }
 
-  /*
-    Change only the recruitment stage.
-
-    The status is adjusted automatically.
-  */
   const handleStageChange = (
     application,
     newStage
@@ -420,18 +357,12 @@ function ApplicationsManagement() {
     let newStatus =
       application.status
 
-    /*
-      Applied stage.
-    */
     if (
       newStage === 'Applied'
     ) {
       newStatus = 'Applied'
     }
 
-    /*
-      Any active recruitment stage.
-    */
     if (
       newStage ===
         'Resume Shortlisting' ||
@@ -439,27 +370,9 @@ function ApplicationsManagement() {
       newStage === 'Online Test' ||
       newStage === 'Interview'
     ) {
-      /*
-        A student at an active stage
-        should be Shortlisted.
-
-        If previously Selected or
-        Rejected, moving them back to
-        an active stage reopens the
-        recruitment process.
-      */
       newStatus = 'Shortlisted'
     }
 
-    /*
-      Result alone does not determine
-      Selected or Rejected.
-
-      If the student was already
-      Selected/Rejected, preserve that.
-
-      Otherwise keep Shortlisted.
-    */
     if (
       newStage === 'Result'
     ) {
@@ -479,6 +392,183 @@ function ApplicationsManagement() {
       newStatus,
       newStage
     )
+  }
+
+  /*
+    Build the visual recruitment
+    timeline for the admin.
+  */
+  const getTimelineSteps = (
+    drive
+  ) => {
+    const steps = [
+      {
+        key: 'Applied',
+        label: 'Applied',
+      },
+    ]
+
+    if (
+      drive?.resume_shortlisting
+    ) {
+      steps.push({
+        key:
+          'Resume Shortlisting',
+        label:
+          'Resume Shortlisting',
+      })
+    }
+
+    steps.push(
+      {
+        key: 'PPT',
+        label: 'PPT',
+      },
+      {
+        key: 'Online Test',
+        label: 'Online Test',
+      },
+      {
+        key: 'Interview',
+        label: 'Interview',
+      },
+      {
+        key: 'Result',
+        label: 'Result',
+      }
+    )
+
+    return steps
+  }
+
+  const getTimelineState = (
+    application,
+    drive,
+    index,
+    step
+  ) => {
+    const currentStage =
+      getCurrentStage(
+        application,
+        drive
+      )
+
+    const steps =
+      getTimelineSteps(drive)
+
+    const currentIndex =
+      steps.findIndex(
+        (item) =>
+          item.key ===
+          currentStage
+      )
+
+    /*
+      Selected means the complete
+      recruitment process is complete.
+    */
+    if (
+      application.status ===
+      'Selected'
+    ) {
+      return 'completed'
+    }
+
+    /*
+      Rejected at Result.
+    */
+    if (
+      application.status ===
+        'Rejected' &&
+      currentStage ===
+        'Result' &&
+      step.key === 'Result'
+    ) {
+      return 'rejected'
+    }
+
+    /*
+      Rejected at any other stage.
+    */
+    if (
+      application.status ===
+        'Rejected' &&
+      index === currentIndex
+    ) {
+      return 'rejected'
+    }
+
+    /*
+      Current stage cannot be found.
+    */
+    if (currentIndex === -1) {
+      if (index === 0) {
+        return 'current'
+      }
+
+      return 'pending'
+    }
+
+    /*
+      Previous stages are complete.
+    */
+    if (
+      index < currentIndex
+    ) {
+      return 'completed'
+    }
+
+    /*
+      Current stage.
+    */
+    if (
+      index === currentIndex
+    ) {
+      return 'current'
+    }
+
+    /*
+      Future stages.
+    */
+    return 'pending'
+  }
+
+  const getTimelineClass = (
+    state
+  ) => {
+    if (state === 'completed') {
+      return {
+        circle:
+          'bg-green-100 text-green-700',
+        text:
+          'text-green-700',
+      }
+    }
+
+    if (state === 'current') {
+      return {
+        circle:
+          'bg-blue-100 text-blue-700 ring-2 ring-blue-200',
+        text:
+          'text-blue-700',
+      }
+    }
+
+    if (state === 'rejected') {
+      return {
+        circle:
+          'bg-red-100 text-red-700',
+        text:
+          'text-red-700',
+      }
+    }
+
+    return {
+      circle:
+        'bg-slate-100 text-slate-400',
+      text:
+        'text-slate-400',
+    }
   }
 
   return (
@@ -544,8 +634,6 @@ function ApplicationsManagement() {
         ) : applications.length ===
           0 ? (
 
-          /* Empty state */
-
           <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
 
             <p className="text-lg font-semibold text-slate-900">
@@ -559,8 +647,6 @@ function ApplicationsManagement() {
           </div>
 
         ) : (
-
-          /* Applications */
 
           <div className="space-y-5">
 
@@ -588,6 +674,11 @@ function ApplicationsManagement() {
                     drive
                   )
 
+                const timelineSteps =
+                  getTimelineSteps(
+                    drive
+                  )
+
                 return (
                   <div
                     key={
@@ -596,11 +687,9 @@ function ApplicationsManagement() {
                     className="rounded-2xl bg-white p-6 shadow-sm"
                   >
 
-                    {/* Top information */}
+                    {/* Student + Drive */}
 
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-
-                      {/* Student */}
 
                       <div>
 
@@ -651,7 +740,6 @@ function ApplicationsManagement() {
 
                       </div>
 
-                      {/* Placement drive */}
 
                       <div className="lg:text-right">
 
@@ -691,8 +779,6 @@ function ApplicationsManagement() {
 
                     <div className="grid gap-5 md:grid-cols-4">
 
-                      {/* Applied On */}
-
                       <div>
 
                         <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
@@ -711,7 +797,6 @@ function ApplicationsManagement() {
 
                       </div>
 
-                      {/* Current status */}
 
                       <div>
 
@@ -729,7 +814,6 @@ function ApplicationsManagement() {
 
                       </div>
 
-                      {/* Current stage */}
 
                       <div>
 
@@ -747,7 +831,6 @@ function ApplicationsManagement() {
 
                       </div>
 
-                      {/* Status selector */}
 
                       <div>
 
@@ -796,6 +879,7 @@ function ApplicationsManagement() {
                       </div>
 
                     </div>
+
 
                     {/* Recruitment Stage */}
 
@@ -863,38 +947,174 @@ function ApplicationsManagement() {
 
                     </div>
 
-                    {/* Progress information */}
 
-                    <div className="mt-5 border-t border-slate-100 pt-4">
+                    {/* Recruitment Progress */}
 
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="mt-6 border-t border-slate-100 pt-5">
 
-                        <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Recruitment Progress
+                      </p>
 
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                            Recruitment Progress
-                          </p>
+                      <div className="mt-5 overflow-x-auto pb-2">
 
-                          <p className="mt-1 text-sm text-slate-600">
-                            {currentStage}
-                          </p>
+                        <div className="flex min-w-[650px] items-start">
+
+                          {timelineSteps.map(
+                            (
+                              step,
+                              index
+                            ) => {
+
+                              const state =
+                                getTimelineState(
+                                  application,
+                                  drive,
+                                  index,
+                                  step
+                                )
+
+                              const styles =
+                                getTimelineClass(
+                                  state
+                                )
+
+                              return (
+                                <div
+                                  key={
+                                    step.key
+                                  }
+                                  className="flex min-w-0 flex-1 items-start"
+                                >
+
+                                  <div className="flex min-w-0 flex-1 flex-col items-center">
+
+                                    <div
+                                      className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${styles.circle}`}
+                                    >
+
+                                      {state ===
+                                        'completed' &&
+                                        '✓'}
+
+                                      {state ===
+                                        'current' &&
+                                        index +
+                                          1}
+
+                                      {state ===
+                                        'rejected' &&
+                                        '✕'}
+
+                                      {state ===
+                                        'pending' &&
+                                        index +
+                                          1}
+
+                                    </div>
+
+                                    <p
+                                      className={`mt-2 text-center text-xs font-semibold ${styles.text}`}
+                                    >
+                                      {
+                                        step.label
+                                      }
+                                    </p>
+
+                                    {step.key ===
+                                      'Resume Shortlisting' && (
+                                      <p className="mt-1 text-center text-[10px] font-medium text-slate-500">
+                                        Resume Screening
+                                      </p>
+                                    )}
+
+                                    {state ===
+                                      'current' && (
+                                      <p className="mt-1 text-center text-[10px] font-medium text-blue-600">
+                                        Current
+                                      </p>
+                                    )}
+
+                                    {state ===
+                                      'rejected' && (
+                                      <p className="mt-1 text-center text-[10px] font-medium text-red-600">
+                                        Rejected
+                                      </p>
+                                    )}
+
+                                  </div>
+
+
+                                  {index <
+                                    timelineSteps.length -
+                                      1 && (
+                                    <div
+                                      className={`mt-4 h-0.5 flex-1 ${
+                                        state ===
+                                        'completed'
+                                          ? 'bg-green-300'
+                                          : 'bg-slate-200'
+                                      }`}
+                                    />
+                                  )}
+
+                                </div>
+                              )
+                            }
+                          )}
 
                         </div>
 
-                        {drive?.id && (
-                          <button
-                            onClick={() =>
-                              navigate(
-                                `/admin/drive/${drive.id}`
-                              )
-                            }
-                            className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-                          >
-                            View Placement Drive →
-                          </button>
-                        )}
+                      </div>
+
+                    </div>
+
+
+                    {/* Selected message */}
+
+                    {application.status ===
+                      'Selected' && (
+                      <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4">
+
+                        <p className="text-sm font-semibold text-green-800">
+                          🎉 Student has been selected.
+                        </p>
 
                       </div>
+                    )}
+
+
+                    {/* Rejected message */}
+
+                    {application.status ===
+                      'Rejected' && (
+                      <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4">
+
+                        <p className="text-sm font-semibold text-red-800">
+                          Application rejected at{' '}
+                          {currentStage}.
+                        </p>
+
+                      </div>
+                    )}
+
+
+                    {/* View drive */}
+
+                    <div className="mt-5 border-t border-slate-100 pt-4">
+
+                      {drive?.id && (
+                        <button
+                          onClick={() =>
+                            navigate(
+                              `/admin/drive/${drive.id}`
+                            )
+                          }
+                          className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                        >
+                          View Placement Drive →
+                        </button>
+                      )}
 
                     </div>
 
