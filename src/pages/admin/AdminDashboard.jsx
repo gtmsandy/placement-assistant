@@ -47,7 +47,6 @@ function AdminDashboard() {
   const upcomingEvents =
     publishedDrives
       .flatMap((drive) => {
-
         const events = []
 
         if (drive.deadline) {
@@ -164,14 +163,30 @@ function AdminDashboard() {
     return 'bg-slate-100 text-slate-700'
   }
 
+  const openDrives = () => {
+    setShowDrives(true)
+    setShowEvents(false)
+    setShowSelected(false)
+  }
+
+  const openEvents = () => {
+    setShowEvents(true)
+    setShowDrives(false)
+    setShowSelected(false)
+  }
+
+  const openSelected = () => {
+    setShowSelected(true)
+    setShowEvents(false)
+    setShowDrives(false)
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
 
-      {/* Header */}
+      <header className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
 
-      <header className="border-b border-slate-200 bg-white px-6 py-5">
-
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
           <div>
 
@@ -191,7 +206,7 @@ function AdminDashboard() {
                 '/admin/create-drive'
               )
             }
-            className="rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto"
           >
             + New Drive
           </button>
@@ -199,7 +214,6 @@ function AdminDashboard() {
         </div>
 
       </header>
-
 
       <main className="mx-auto max-w-6xl space-y-6 px-5 py-8">
 
@@ -210,31 +224,41 @@ function AdminDashboard() {
           {/* Active Drives */}
 
           <button
-            onClick={() => {
-              setShowDrives(true)
-              setShowEvents(false)
-              setShowSelected(false)
-            }}
-            className="rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md"
+            onClick={openDrives}
+            className={`rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md ${
+              showDrives
+                ? 'ring-2 ring-blue-100'
+                : ''
+            }`}
           >
 
-            <p className="text-sm text-slate-500">
-              Active Drives
-            </p>
+            <div className="flex items-start justify-between gap-3">
 
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {drivesLoading
-                ? '...'
-                : publishedDrives.length}
-            </p>
+              <div>
 
-            <p className="mt-1 text-xs text-blue-600">
-              View placement drives →
-            </p>
+                <p className="text-sm text-slate-500">
+                  Active Drives
+                </p>
 
-            <p className="mt-2 text-2xl">
-              🏢
-            </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {drivesLoading
+                    ? '...'
+                    : publishedDrives.length}
+                </p>
+
+                <p className="mt-1 text-xs text-blue-600">
+                  {showDrives
+                    ? 'Hide drives ↑'
+                    : 'View placement drives →'}
+                </p>
+
+              </div>
+
+              <span className="text-2xl">
+                🏢
+              </span>
+
+            </div>
 
           </button>
 
@@ -242,33 +266,41 @@ function AdminDashboard() {
           {/* Upcoming Events */}
 
           <button
-            onClick={() => {
-              setShowEvents(true)
-              setShowDrives(false)
-              setShowSelected(false)
-            }}
-            className="rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md"
+            onClick={openEvents}
+            className={`rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md ${
+              showEvents
+                ? 'ring-2 ring-blue-100'
+                : ''
+            }`}
           >
 
-            <p className="text-sm text-slate-500">
-              Upcoming Events
-            </p>
+            <div className="flex items-start justify-between gap-3">
 
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {drivesLoading
-                ? '...'
-                : upcomingEvents.length}
-            </p>
+              <div>
 
-            <p className="mt-1 text-xs text-blue-600">
-              {showEvents
-                ? 'Hide events ↑'
-                : 'View events →'}
-            </p>
+                <p className="text-sm text-slate-500">
+                  Upcoming Events
+                </p>
 
-            <p className="mt-2 text-2xl">
-              📅
-            </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {drivesLoading
+                    ? '...'
+                    : upcomingEvents.length}
+                </p>
+
+                <p className="mt-1 text-xs text-blue-600">
+                  {showEvents
+                    ? 'Hide events ↑'
+                    : 'View events →'}
+                </p>
+
+              </div>
+
+              <span className="text-2xl">
+                📅
+              </span>
+
+            </div>
 
           </button>
 
@@ -284,23 +316,31 @@ function AdminDashboard() {
             className="rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md"
           >
 
-            <p className="text-sm text-slate-500">
-              Applications
-            </p>
+            <div className="flex items-start justify-between gap-3">
 
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {applicationsLoading
-                ? '...'
-                : applications.length}
-            </p>
+              <div>
 
-            <p className="mt-1 text-xs text-blue-600">
-              View student applications →
-            </p>
+                <p className="text-sm text-slate-500">
+                  Applications
+                </p>
 
-            <p className="mt-2 text-2xl">
-              👨‍🎓
-            </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {applicationsLoading
+                    ? '...'
+                    : applications.length}
+                </p>
+
+                <p className="mt-1 text-xs text-blue-600">
+                  View student applications →
+                </p>
+
+              </div>
+
+              <span className="text-2xl">
+                👨‍🎓
+              </span>
+
+            </div>
 
           </button>
 
@@ -308,38 +348,46 @@ function AdminDashboard() {
           {/* Selected */}
 
           <button
-            onClick={() => {
-              setShowSelected(true)
-              setShowEvents(false)
-              setShowDrives(false)
-            }}
-            className="rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md"
+            onClick={openSelected}
+            className={`rounded-2xl bg-white p-5 text-left shadow-sm transition hover:shadow-md ${
+              showSelected
+                ? 'ring-2 ring-blue-100'
+                : ''
+            }`}
           >
 
-            <p className="text-sm text-slate-500">
-              Selected
-            </p>
+            <div className="flex items-start justify-between gap-3">
 
-            <p className="mt-2 text-3xl font-bold text-slate-900">
-              {applicationsLoading
-                ? '...'
-                : selectedApplications.length}
-            </p>
+              <div>
 
-            <p className="mt-1 text-xs text-blue-600">
-              View selected →
-            </p>
+                <p className="text-sm text-slate-500">
+                  Selected
+                </p>
 
-            <p className="mt-2 text-2xl">
-              🏆
-            </p>
+                <p className="mt-2 text-3xl font-bold text-slate-900">
+                  {applicationsLoading
+                    ? '...'
+                    : selectedApplications.length}
+                </p>
+
+                <p className="mt-1 text-xs text-blue-600">
+                  View selected →
+                </p>
+
+              </div>
+
+              <span className="text-2xl">
+                🏆
+              </span>
+
+            </div>
 
           </button>
 
         </section>
 
 
-        {/* Active Drives */}
+        {/* Active Drives + Withdrawn Drives */}
 
         {showDrives && (
 
@@ -366,7 +414,7 @@ function AdminDashboard() {
                     '/admin/create-drive'
                   )
                 }
-                className="text-sm font-semibold text-blue-600"
+                className="w-full rounded-lg border border-blue-200 px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 sm:w-auto"
               >
                 + Add Drive
               </button>
@@ -374,107 +422,244 @@ function AdminDashboard() {
             </div>
 
 
+            {/* Loading */}
+
             {drivesLoading ? (
 
               <div className="p-10 text-center text-sm text-slate-500">
                 Loading placement drives...
               </div>
 
-            ) : publishedDrives.length === 0 ? (
-
-              <div className="p-10 text-center">
-
-                <p className="font-semibold text-slate-900">
-                  No active placement drives
-                </p>
-
-                <p className="mt-2 text-sm text-slate-500">
-                  Create a placement drive to get started.
-                </p>
-
-              </div>
-
             ) : (
 
-              <div className="divide-y divide-slate-100">
+              <>
 
-                {publishedDrives.map(
-                  (drive) => (
+                {/* Published Drives */}
 
-                    <div
-                      key={drive.id}
-                      className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+                {publishedDrives.length === 0 ? (
+
+                  <div className="p-10 text-center">
+
+                    <p className="font-semibold text-slate-900">
+                      No active placement drives
+                    </p>
+
+                    <p className="mt-2 text-sm text-slate-500">
+                      Create a placement drive to get started.
+                    </p>
+
+                    <button
+                      onClick={() =>
+                        navigate(
+                          '/admin/create-drive'
+                        )
+                      }
+                      className="mt-5 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
                     >
+                      Create First Drive
+                    </button>
 
-                      <div>
+                  </div>
 
-                        <div className="flex flex-wrap items-center gap-2">
+                ) : (
 
-                          <h3 className="font-semibold text-slate-900">
-                            {drive.companyName}
-                          </h3>
+                  <div className="divide-y divide-slate-100">
 
-                          <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                            Published
-                          </span>
+                    {publishedDrives.map(
+                      (drive) => (
+
+                        <div
+                          key={drive.id}
+                          className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+                        >
+
+                          <div className="min-w-0">
+
+                            <div className="flex flex-wrap items-center gap-2">
+
+                              <h3 className="font-semibold text-slate-900">
+                                {drive.companyName}
+                              </h3>
+
+                              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                Published
+                              </span>
+
+                            </div>
+
+                            <p className="mt-1 text-sm text-slate-500">
+                              {drive.role}
+
+                              {drive.ctc
+                                ? ` • ${drive.ctc}`
+                                : ''}
+                            </p>
+
+                            {drive.location && (
+                              <p className="mt-1 text-xs text-slate-400">
+                                📍 {drive.location}
+                              </p>
+                            )}
+
+                            {drive.resumeShortlisting && (
+                              <p className="mt-2 text-xs font-semibold text-blue-600">
+                                Resume Shortlisting Required
+                              </p>
+                            )}
+
+                          </div>
+
+
+                          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/admin/drive/${drive.id}`
+                                )
+                              }
+                              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
+                            >
+                              View Drive →
+                            </button>
+
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/admin/edit-drive/${drive.id}`
+                                )
+                              }
+                              className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
+                            >
+                              Edit
+                            </button>
+
+                          </div>
 
                         </div>
 
-                        <p className="mt-1 text-sm text-slate-500">
-                          {drive.role}
+                      )
+                    )}
 
-                          {drive.ctc
-                            ? ` • ${drive.ctc}`
-                            : ''}
-                        </p>
+                  </div>
 
-                        {drive.location && (
-                          <p className="mt-1 text-xs text-slate-400">
-                            📍 {drive.location}
-                          </p>
-                        )}
-
-                        {drive.resumeShortlisting && (
-                          <p className="mt-2 text-xs font-semibold text-blue-600">
-                            Resume Shortlisting Required
-                          </p>
-                        )}
-
-                      </div>
+                )}
 
 
-                      <div className="flex gap-2">
+                {/* Withdrawn Drives */}
 
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/admin/drive/${drive.id}`
-                            )
-                          }
-                          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                          View Drive →
-                        </button>
+                <div className="border-t border-slate-200">
 
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/admin/edit-drive/${drive.id}`
-                            )
-                          }
-                          className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                          Edit
-                        </button>
+                  <div className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
 
-                      </div>
+                    <div>
+
+                      <h2 className="font-bold text-slate-900">
+                        Withdrawn Drives
+                      </h2>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        {withdrawnDrives.length}{' '}
+                        placement drive
+                        {withdrawnDrives.length !== 1
+                          ? 's'
+                          : ''}{' '}
+                        withdrawn. Existing applications are preserved.
+                      </p>
 
                     </div>
 
-                  )
-                )}
+                    <span className="w-fit rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-600">
+                      {withdrawnDrives.length}
+                    </span>
 
-              </div>
+                  </div>
+
+
+                  {withdrawnDrives.length === 0 ? (
+
+                    <div className="border-t border-slate-100 px-6 py-8 text-center">
+
+                      <p className="text-sm text-slate-500">
+                        No withdrawn placement drives.
+                      </p>
+
+                    </div>
+
+                  ) : (
+
+                    <div className="divide-y divide-slate-100 border-t border-slate-100">
+
+                      {withdrawnDrives.map(
+                        (drive) => (
+
+                          <div
+                            key={drive.id}
+                            className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+                          >
+
+                            <div className="min-w-0">
+
+                              <div className="flex flex-wrap items-center gap-2">
+
+                                <h3 className="font-semibold text-slate-900">
+                                  {drive.companyName}
+                                </h3>
+
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                                  Withdrawn
+                                </span>
+
+                              </div>
+
+                              <p className="mt-1 text-sm text-slate-500">
+                                {drive.role}
+
+                                {drive.ctc
+                                  ? ` • ${drive.ctc}`
+                                  : ''}
+                              </p>
+
+                              {drive.location && (
+                                <p className="mt-1 text-xs text-slate-400">
+                                  📍 {drive.location}
+                                </p>
+                              )}
+
+                              <p className="mt-2 text-xs text-slate-500">
+                                Existing student applications are preserved.
+                              </p>
+
+                            </div>
+
+
+                            <div className="flex w-full sm:w-auto">
+
+                              <button
+                                onClick={() =>
+                                  navigate(
+                                    `/admin/drive/${drive.id}`
+                                  )
+                                }
+                                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
+                              >
+                                View Drive →
+                              </button>
+
+                            </div>
+
+                          </div>
+
+                        )
+                      )}
+
+                    </div>
+
+                  )}
+
+                </div>
+
+              </>
 
             )}
 
@@ -489,7 +674,7 @@ function AdminDashboard() {
 
           <section className="rounded-2xl bg-white shadow-sm">
 
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
 
               <div>
 
@@ -508,7 +693,7 @@ function AdminDashboard() {
                 onClick={() =>
                   setShowEvents(false)
                 }
-                className="text-sm font-semibold text-slate-500 hover:text-slate-700"
+                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:w-auto"
               >
                 Close
               </button>
@@ -534,13 +719,13 @@ function AdminDashboard() {
                       className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
                     >
 
-                      <div className="flex items-start gap-4">
+                      <div className="flex min-w-0 items-start gap-4">
 
                         <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xl">
                           {event.icon}
                         </div>
 
-                        <div>
+                        <div className="min-w-0">
 
                           <h3 className="font-semibold text-slate-900">
                             {event.company}
@@ -575,7 +760,7 @@ function AdminDashboard() {
                             `/admin/drive/${event.driveId}`
                           )
                         }
-                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
                       >
                         View Drive →
                       </button>
@@ -600,7 +785,7 @@ function AdminDashboard() {
 
           <section className="rounded-2xl bg-white shadow-sm">
 
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+            <div className="flex flex-col gap-3 border-b border-slate-200 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
 
               <div>
 
@@ -619,7 +804,7 @@ function AdminDashboard() {
                 onClick={() =>
                   setShowSelected(false)
                 }
-                className="text-sm font-semibold text-slate-500"
+                className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:w-auto"
               >
                 Close
               </button>
@@ -660,7 +845,7 @@ function AdminDashboard() {
                     return (
                       <div
                         key={application.id}
-                        className="flex flex-col gap-4 px-6 py-5"
+                        className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
                       >
 
                         <div>
@@ -685,7 +870,7 @@ function AdminDashboard() {
                               '/admin/applications'
                             )
                           }
-                          className="w-fit rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+                          className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 sm:w-auto"
                         >
                           View Application →
                         </button>
@@ -702,82 +887,6 @@ function AdminDashboard() {
           </section>
 
         )}
-
-
-        {/* Withdrawn Drives */}
-
-        {withdrawnDrives.length > 0 && (
-
-          <section className="rounded-2xl bg-white shadow-sm">
-
-            <div className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-
-              <div>
-
-                <h2 className="font-bold text-slate-900">
-                  Withdrawn Drives
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  {withdrawnDrives.length}{' '}
-                  placement drives withdrawn.
-                  Existing applications are preserved.
-                </p>
-
-              </div>
-
-              <button
-                onClick={() =>
-                  navigate(
-                    '/admin/withdrawn-drives'
-                  )
-                }
-                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-              >
-                {withdrawnDrives.length}
-                {' '}
-                View withdrawn →
-              </button>
-
-            </div>
-
-          </section>
-
-        )}
-
-
-        {/* Student Applications */}
-
-        <section className="rounded-2xl bg-white p-6 shadow-sm">
-
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
-            <div>
-
-              <h2 className="font-bold text-slate-900">
-                Student Applications
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-500">
-                Review students who have applied to placement drives.
-              </p>
-
-            </div>
-
-            <button
-              onClick={() =>
-                navigate(
-                  '/admin/applications'
-                )
-              }
-              className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
-            >
-              View Applications
-            </button>
-
-          </div>
-
-        </section>
 
       </main>
 

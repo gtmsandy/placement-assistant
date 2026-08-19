@@ -31,11 +31,6 @@ function StudentDashboard() {
     })
   }
 
-  /*
-    Load all published placement drives
-    and calculate eligibility for the
-    current student.
-  */
   const opportunities = drives
     .filter(
       (drive) =>
@@ -53,24 +48,12 @@ function StudentDashboard() {
       }
     })
 
-  /*
-    Only eligible opportunities are counted
-    as eligible opportunities.
-  */
   const eligibleOpportunities =
     opportunities.filter(
       (opportunity) =>
         opportunity.eligibility.eligible
     )
 
-  /*
-    Upcoming events are now generated ONLY
-    for eligible placement drives.
-
-    This prevents students from seeing
-    PPT / OT / Interview events for drives
-    they are not eligible to apply for.
-  */
   const upcomingEvents = opportunities
     .filter(
       (opportunity) =>
@@ -459,7 +442,10 @@ function StudentDashboard() {
 
           <button
             onClick={() =>
-              navigate('/student')
+              window.scrollTo({
+                top: 0,
+                behavior: 'smooth',
+              })
             }
             className="text-sm font-semibold text-blue-600"
           >
@@ -468,18 +454,9 @@ function StudentDashboard() {
 
           <button
             onClick={() =>
-              navigate('/student')
-            }
-            className="text-sm text-slate-500"
-          >
-            Jobs
-          </button>
-
-          <button
-            onClick={() =>
               navigate('/student/calendar')
             }
-            className="text-sm text-slate-500"
+            className="text-sm text-slate-500 hover:text-blue-600"
           >
             Calendar
           </button>
@@ -488,7 +465,7 @@ function StudentDashboard() {
             onClick={() =>
               navigate('/student/applications')
             }
-            className="text-sm text-slate-500"
+            className="text-sm text-slate-500 hover:text-blue-600"
           >
             Applications
           </button>
