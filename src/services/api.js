@@ -116,9 +116,7 @@ export async function getDrive(
 }
 
 
-export async function createDrive(
-  drive
-) {
+export async function createDrive(drive) {
   console.log(
     'Creating placement drive:',
     drive
@@ -134,6 +132,56 @@ export async function createDrive(
       ),
     }
   )
+}
+
+export async function uploadJobDescription(
+  driveId,
+  file
+) {
+  const formData = new FormData()
+
+  formData.append(
+    'file',
+    file
+  )
+
+  const response = await fetch(
+    `${API_BASE_URL}/drives/${driveId}/jd`,
+    {
+      method: 'POST',
+      body: formData,
+    }
+  )
+
+  const text =
+    await response.text()
+
+  let data = null
+
+  try {
+    data = text
+      ? JSON.parse(text)
+      : null
+  } catch {
+    data = text
+  }
+
+  if (!response.ok) {
+
+    const detail =
+      data?.detail ||
+      data?.message ||
+      data ||
+      `JD upload failed with status ${response.status}`
+
+    throw new Error(
+      typeof detail === 'string'
+        ? detail
+        : JSON.stringify(detail)
+    )
+  }
+
+  return data
 }
 
 

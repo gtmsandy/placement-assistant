@@ -6,29 +6,45 @@ import { useApplications } from '../../context/ApplicationContext'
 
 import { checkEligibility } from '../../services/eligibilityService'
 
-function OpportunityDetails() {
-  const navigate = useNavigate()
-  const { id } = useParams()
 
-  const { drives } = usePlacements()
-  const { student } = useStudent()
+const API_BASE_URL =
+  'http://127.0.0.1:8000'
+
+
+function OpportunityDetails() {
+
+  const navigate =
+    useNavigate()
+
+  const { id } =
+    useParams()
+
+
+  const { drives } =
+    usePlacements()
+
+  const { student } =
+    useStudent()
+
 
   const {
     applyToDrive,
     getApplication,
   } = useApplications()
 
-  const drive = drives.find(
-    (item) =>
-      String(item.id) === String(id)
-  )
 
-  /*
-    If the drive does not exist.
-  */
+  const drive =
+    drives.find(
+      (item) =>
+        String(item.id) ===
+        String(id)
+    )
+
 
   if (!drive) {
+
     return (
+
       <div className="min-h-screen bg-slate-50 p-6">
 
         <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 text-center shadow-sm">
@@ -54,13 +70,10 @@ function OpportunityDetails() {
         </div>
 
       </div>
+
     )
   }
 
-  /*
-    Calculate eligibility using the
-    current student profile.
-  */
 
   const eligibility =
     checkEligibility(
@@ -68,10 +81,6 @@ function OpportunityDetails() {
       drive
     )
 
-  /*
-    Find whether the student has
-    already applied.
-  */
 
   const application =
     getApplication(
@@ -79,105 +88,129 @@ function OpportunityDetails() {
       student.id
     )
 
-  /*
-    Format date/time for display.
-  */
 
-  const formatDate = (date) => {
-    if (!date) {
-      return 'Not specified'
-    }
+  const formatDate =
+    (date) => {
 
-    const parsedDate =
-      new Date(date)
-
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return date
-    }
-
-    return parsedDate.toLocaleString(
-      'en-IN',
-      {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
+      if (!date) {
+        return 'Not specified'
       }
-    )
-  }
 
-  /*
-    Return the JD filename regardless
-    of whether jd is currently a File
-    object or a string returned by API.
-  */
+      const parsedDate =
+        new Date(date)
 
-  const getJdName = () => {
-    if (!drive.jd) {
-      return ''
-    }
+      if (
+        Number.isNaN(
+          parsedDate.getTime()
+        )
+      ) {
+        return date
+      }
 
-    if (
-      typeof drive.jd === 'string'
-    ) {
-      return drive.jd
-    }
-
-    return (
-      drive.jd.name ||
-      'Job Description'
-    )
-  }
-
-  /*
-    Apply to placement drive.
-  */
-
-  const handleApply = async () => {
-
-    const currentEligibility =
-      checkEligibility(
-        student,
-        drive
-      )
-
-    if (
-      !currentEligibility.eligible
-    ) {
-      alert(
-        'You are not eligible for this placement drive.'
-      )
-
-      return
-    }
-
-    if (application) {
-      alert(
-        'You have already applied to this placement drive.'
-      )
-
-      return
-    }
-
-    const success =
-      await applyToDrive(
-        drive,
-        student
-      )
-
-    if (success) {
-      alert(
-        'Application recorded successfully!'
+      return parsedDate.toLocaleString(
+        'en-IN',
+        {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }
       )
     }
-  }
+
+
+  const getJdUrl =
+    () => {
+
+      if (!drive.jd) {
+        return ''
+      }
+
+      if (
+        drive.jd.startsWith(
+          'http://'
+        ) ||
+        drive.jd.startsWith(
+          'https://'
+        )
+      ) {
+        return drive.jd
+      }
+
+      return `${API_BASE_URL}${drive.jd}`
+    }
+
+
+  const handleViewJd =
+    () => {
+
+      const jdUrl =
+        getJdUrl()
+
+      if (!jdUrl) {
+        return
+      }
+
+      window.open(
+        jdUrl,
+        '_blank',
+        'noopener,noreferrer'
+      )
+    }
+
+
+  const handleApply =
+    async () => {
+
+      const currentEligibility =
+        checkEligibility(
+          student,
+          drive
+        )
+
+      if (
+        !currentEligibility.eligible
+      ) {
+
+        alert(
+          'You are not eligible for this placement drive.'
+        )
+
+        return
+      }
+
+
+      if (application) {
+
+        alert(
+          'You have already applied to this placement drive.'
+        )
+
+        return
+      }
+
+
+      const success =
+        await applyToDrive(
+          drive,
+          student
+        )
+
+
+      if (success) {
+
+        alert(
+          'Application recorded successfully!'
+        )
+
+      }
+
+    }
+
 
   return (
+
     <div className="min-h-screen bg-slate-50 pb-10">
 
       {/* Header */}
@@ -199,6 +232,7 @@ function OpportunityDetails() {
 
       </header>
 
+
       <main className="mx-auto max-w-3xl space-y-5 px-5 py-6">
 
         {/* Company Header */}
@@ -219,6 +253,7 @@ function OpportunityDetails() {
 
             </div>
 
+
             {eligibility.eligible ? (
 
               <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
@@ -235,6 +270,7 @@ function OpportunityDetails() {
 
           </div>
 
+
           <div className="mt-6 grid grid-cols-2 gap-4">
 
             <div className="rounded-xl bg-slate-50 p-4">
@@ -249,6 +285,7 @@ function OpportunityDetails() {
               </p>
 
             </div>
+
 
             <div className="rounded-xl bg-slate-50 p-4">
 
@@ -267,6 +304,7 @@ function OpportunityDetails() {
 
         </section>
 
+
         {/* Eligibility */}
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
@@ -276,6 +314,7 @@ function OpportunityDetails() {
             <h2 className="text-lg font-bold text-slate-900">
               Your Eligibility
             </h2>
+
 
             {eligibility.eligible ? (
 
@@ -293,7 +332,6 @@ function OpportunityDetails() {
 
           </div>
 
-          {/* Eligibility reasons */}
 
           {!eligibility.eligible &&
             eligibility.reasons &&
@@ -329,9 +367,8 @@ function OpportunityDetails() {
 
             )}
 
-          <div className="mt-5 space-y-3">
 
-            {/* CGPA */}
+          <div className="mt-5 space-y-3">
 
             <div className="flex items-center justify-between gap-4">
 
@@ -365,7 +402,6 @@ function OpportunityDetails() {
 
             </div>
 
-            {/* 10th */}
 
             <div className="flex items-center justify-between gap-4">
 
@@ -399,7 +435,6 @@ function OpportunityDetails() {
 
             </div>
 
-            {/* 12th */}
 
             <div className="flex items-center justify-between gap-4">
 
@@ -433,7 +468,6 @@ function OpportunityDetails() {
 
             </div>
 
-            {/* Branch */}
 
             <div className="flex items-center justify-between gap-4">
 
@@ -471,7 +505,6 @@ function OpportunityDetails() {
 
             </div>
 
-            {/* Backlogs */}
 
             <div className="flex items-center justify-between gap-4">
 
@@ -513,7 +546,6 @@ function OpportunityDetails() {
 
             </div>
 
-            {/* Graduation Year */}
 
             <div className="flex items-center justify-between gap-4">
 
@@ -559,6 +591,7 @@ function OpportunityDetails() {
 
         </section>
 
+
         {/* Important Dates */}
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
@@ -566,6 +599,7 @@ function OpportunityDetails() {
           <h2 className="text-lg font-bold text-slate-900">
             Important Dates
           </h2>
+
 
           <div className="mt-4 space-y-4">
 
@@ -583,6 +617,7 @@ function OpportunityDetails() {
 
             </div>
 
+
             <div>
 
               <p className="text-sm font-semibold text-slate-900">
@@ -597,6 +632,7 @@ function OpportunityDetails() {
 
             </div>
 
+
             <div>
 
               <p className="text-sm font-semibold text-slate-900">
@@ -605,11 +641,13 @@ function OpportunityDetails() {
 
               <p className="mt-1 text-sm text-slate-500">
                 {formatDate(
+                  drive.onlineTest ||
                   drive.ot
                 )}
               </p>
 
             </div>
+
 
             <div>
 
@@ -629,6 +667,7 @@ function OpportunityDetails() {
 
         </section>
 
+
         {/* Documents */}
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
@@ -637,11 +676,12 @@ function OpportunityDetails() {
             Documents
           </h2>
 
+
           <div className="mt-4">
 
             {drive.jd ? (
 
-              <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 p-4">
+              <div className="flex flex-col gap-4 rounded-xl bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
 
                 <div className="min-w-0">
 
@@ -649,20 +689,20 @@ function OpportunityDetails() {
                     📄 Job Description
                   </p>
 
-                  <p className="mt-1 truncate text-xs text-slate-500">
-                    {getJdName()}
+                  <p className="mt-1 break-all text-xs text-slate-500">
+                    {drive.jd_filename ||
+                      'Job Description PDF'}
                   </p>
 
                 </div>
 
+
                 <button
                   type="button"
-                  onClick={() =>
-                    alert(
-                      'JD viewing will be connected to file storage later.'
-                    )
+                  onClick={
+                    handleViewJd
                   }
-                  className="ml-4 shrink-0 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="shrink-0 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
                   View
                 </button>
@@ -688,6 +728,7 @@ function OpportunityDetails() {
           </div>
 
         </section>
+
 
         {/* Registration */}
 
@@ -719,6 +760,7 @@ function OpportunityDetails() {
 
         )}
 
+
         {/* Application */}
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
@@ -726,6 +768,7 @@ function OpportunityDetails() {
           <h2 className="text-lg font-bold text-slate-900">
             Application
           </h2>
+
 
           {application ? (
 
@@ -741,6 +784,7 @@ function OpportunityDetails() {
                   You applied for this
                   placement drive.
                 </p>
+
 
                 {drive.resumeShortlisting && (
 
@@ -770,6 +814,7 @@ function OpportunityDetails() {
 
                 )}
 
+
                 <div className="mt-3 flex items-center justify-between gap-4">
 
                   <p className="text-xs text-green-600">
@@ -783,6 +828,7 @@ function OpportunityDetails() {
                 </div>
 
               </div>
+
 
               <button
                 onClick={() =>
@@ -807,6 +853,7 @@ function OpportunityDetails() {
                 drive.
               </p>
 
+
               {drive.resumeShortlisting && (
 
                 <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
@@ -823,8 +870,11 @@ function OpportunityDetails() {
 
               )}
 
+
               <button
-                onClick={handleApply}
+                onClick={
+                  handleApply
+                }
                 className="mt-5 w-full rounded-xl bg-blue-600 py-3 font-semibold text-white hover:bg-blue-700"
               >
                 Apply Now
@@ -851,6 +901,7 @@ function OpportunityDetails() {
 
               </div>
 
+
               <button
                 onClick={() =>
                   navigate('/student')
@@ -869,6 +920,7 @@ function OpportunityDetails() {
       </main>
 
     </div>
+
   )
 }
 

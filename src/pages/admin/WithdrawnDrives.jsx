@@ -19,11 +19,7 @@ function WithdrawnDrives() {
   return (
     <div className="min-h-screen bg-slate-50">
 
-      {/* =========================
-          HEADER
-      ========================= */}
-
-      <header className="border-b border-slate-200 bg-white px-5 py-5">
+      <header className="border-b border-slate-200 bg-white px-5 py-5 sm:px-6">
 
         <div className="mx-auto max-w-6xl">
 
@@ -54,42 +50,32 @@ function WithdrawnDrives() {
       </header>
 
 
-      {/* =========================
-          MAIN
-      ========================= */}
-
       <main className="mx-auto max-w-6xl px-5 py-8">
 
-        {/* Summary */}
+        <section className="mb-6 rounded-2xl bg-white p-6 shadow-sm">
 
-        <section className="mb-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-          <div className="rounded-2xl bg-white p-5 shadow-sm">
+            <div>
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-slate-500">
+                Withdrawn Placement Drives
+              </p>
 
-              <div>
+              <p className="mt-2 text-3xl font-bold text-slate-900">
+                {loading
+                  ? '...'
+                  : withdrawnDrives.length}
+              </p>
 
-                <p className="text-sm text-slate-500">
-                  Withdrawn Placement Drives
-                </p>
+              <p className="mt-1 text-sm text-slate-500">
+                Existing applications remain preserved.
+              </p>
 
-                <p className="mt-2 text-3xl font-bold text-slate-900">
-                  {loading
-                    ? '...'
-                    : withdrawnDrives.length}
-                </p>
+            </div>
 
-                <p className="mt-1 text-xs text-slate-400">
-                  Existing applications remain preserved.
-                </p>
-
-              </div>
-
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-2xl">
-                📁
-              </div>
-
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
+              📁
             </div>
 
           </div>
@@ -97,15 +83,11 @@ function WithdrawnDrives() {
         </section>
 
 
-        {/* =========================
-            ERROR
-        ========================= */}
-
         {error && (
 
           <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-5">
 
-            <p className="text-sm font-semibold text-red-700">
+            <p className="font-semibold text-red-700">
               Unable to load withdrawn drives
             </p>
 
@@ -118,11 +100,7 @@ function WithdrawnDrives() {
         )}
 
 
-        {/* =========================
-            DRIVE LIST
-        ========================= */}
-
-        <section className="rounded-2xl bg-white shadow-sm">
+        <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
 
           <div className="border-b border-slate-200 px-6 py-5">
 
@@ -137,8 +115,6 @@ function WithdrawnDrives() {
           </div>
 
 
-          {/* Loading */}
-
           {loading ? (
 
             <div className="px-6 py-14 text-center">
@@ -150,8 +126,6 @@ function WithdrawnDrives() {
             </div>
 
           ) : withdrawnDrives.length === 0 ? (
-
-            /* Empty state */
 
             <div className="px-6 py-14 text-center">
 
@@ -180,8 +154,6 @@ function WithdrawnDrives() {
 
           ) : (
 
-            /* Drive list */
-
             <div className="divide-y divide-slate-100">
 
               {withdrawnDrives.map(
@@ -194,9 +166,7 @@ function WithdrawnDrives() {
 
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
 
-                      {/* Drive information */}
-
-                      <div>
+                      <div className="min-w-0">
 
                         <div className="flex flex-wrap items-center gap-2">
 
@@ -237,9 +207,7 @@ function WithdrawnDrives() {
                       </div>
 
 
-                      {/* Actions */}
-
-                      <div className="flex flex-col gap-2 sm:flex-row">
+                      <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
 
                         <button
                           onClick={() =>

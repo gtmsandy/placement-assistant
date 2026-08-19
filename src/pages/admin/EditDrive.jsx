@@ -69,6 +69,14 @@ function EditDrive() {
     useState('')
 
 
+  const [selectedFile, setSelectedFile] =
+    useState(null)
+
+
+  const [currentJdFilename, setCurrentJdFilename] =
+    useState('')
+
+
   const [form, setForm] =
     useState({
 
@@ -94,7 +102,6 @@ function EditDrive() {
       interview: '',
 
       registration_link: '',
-      jd: '',
 
       status: 'Published',
 
@@ -203,15 +210,17 @@ function EditDrive() {
               drive.registration_link ||
               '',
 
-            jd:
-              drive.jd ||
-              '',
-
             status:
               drive.status ||
               'Published',
 
           })
+
+
+          setCurrentJdFilename(
+            drive.jd_filename ||
+            ''
+          )
 
         } catch (error) {
 
@@ -261,6 +270,53 @@ function EditDrive() {
               : value,
 
         })
+      )
+
+    }
+
+
+  const handleFileChange =
+    (event) => {
+
+      const file =
+        event.target.files?.[0]
+
+
+      if (!file) {
+
+        setSelectedFile(
+          null
+        )
+
+        return
+
+      }
+
+
+      if (
+        file.type !==
+          'application/pdf'
+      ) {
+
+        setError(
+          'Only PDF files are allowed.'
+        )
+
+        event.target.value = ''
+
+        setSelectedFile(
+          null
+        )
+
+        return
+
+      }
+
+
+      setError('')
+
+      setSelectedFile(
+        file
       )
 
     }
@@ -378,10 +434,6 @@ function EditDrive() {
             form.registration_link ||
             null,
 
-          jd:
-            form.jd ||
-            null,
-
           status:
             form.status ||
             'Published',
@@ -420,6 +472,63 @@ function EditDrive() {
             data.detail ||
               'Failed to update placement drive.'
           )
+
+        }
+
+
+        if (selectedFile) {
+
+          const formData =
+            new FormData()
+
+          formData.append(
+            'file',
+            selectedFile
+          )
+
+
+          const jdResponse =
+            await fetch(
+              `${API_BASE_URL}/api/drives/${id}/jd`,
+              {
+                method: 'POST',
+                body: formData,
+              }
+            )
+
+
+          const jdText =
+            await jdResponse.text()
+
+
+          let jdData = null
+
+
+          try {
+
+            jdData =
+              jdText
+                ? JSON.parse(
+                    jdText
+                  )
+                : null
+
+          } catch {
+
+            jdData =
+              jdText
+
+          }
+
+
+          if (!jdResponse.ok) {
+
+            throw new Error(
+              jdData?.detail ||
+                'Drive updated, but JD upload failed.'
+            )
+
+          }
 
         }
 
@@ -536,7 +645,7 @@ function EditDrive() {
           className="space-y-6"
         >
 
-          {/* Company Details */}
+          {/* COMPANY DETAILS */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -634,7 +743,7 @@ function EditDrive() {
           </section>
 
 
-          {/* Eligibility */}
+          {/* ELIGIBILITY */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -813,7 +922,7 @@ function EditDrive() {
           </section>
 
 
-          {/* Recruitment Schedule */}
+          {/* RECRUITMENT SCHEDULE */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -821,8 +930,6 @@ function EditDrive() {
               Recruitment Schedule
             </h2>
 
-
-            {/* Resume Shortlisting */}
 
             <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
 
@@ -948,7 +1055,7 @@ function EditDrive() {
           </section>
 
 
-          {/* Registration */}
+          {/* REGISTRATION & DOCUMENTS */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -987,21 +1094,61 @@ function EditDrive() {
                   Job Description
                 </label>
 
-                <input
-                  name="jd"
-                  value={
-                    form.jd
-                  }
-                  onChange={
-                    handleChange
-                  }
-                  placeholder="JD filename"
-                  className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
-                />
 
-                <p className="mt-2 text-xs text-slate-400">
-                  JD file storage will be connected later.
-                </p>
+                {currentJdFilename && (
+
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+
+                    <p className="text-xs font-medium text-slate-500">
+                      Current file
+                    </p>
+
+                    <p className="mt-1 break-all text-sm font-semibold text-slate-800">
+                      {currentJdFilename}
+                    </p>
+
+                  </div>
+
+                )}
+
+
+                <div className="mt-4">
+
+                  <label className="text-sm font-medium text-slate-700">
+                    Replace Job Description
+                  </label>
+
+                  <input
+                    type="file"
+                    accept=".pdf,application/pdf"
+                    onChange={
+                      handleFileChange
+                    }
+                    className="mt-2 block w-full cursor-pointer rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-blue-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-blue-700 hover:file:bg-blue-100"
+                  />
+
+                  <p className="mt-2 text-xs text-slate-400">
+                    PDF files only. Leave this empty to keep the current JD.
+                  </p>
+
+                </div>
+
+
+                {selectedFile && (
+
+                  <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+
+                    <p className="text-xs font-medium text-blue-600">
+                      New file selected
+                    </p>
+
+                    <p className="mt-1 break-all text-sm font-semibold text-blue-900">
+                      {selectedFile.name}
+                    </p>
+
+                  </div>
+
+                )}
 
               </div>
 
@@ -1010,7 +1157,7 @@ function EditDrive() {
           </section>
 
 
-          {/* Status */}
+          {/* DRIVE STATUS */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -1076,7 +1223,7 @@ function EditDrive() {
           </section>
 
 
-          {/* Buttons */}
+          {/* BUTTONS */}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
 

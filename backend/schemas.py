@@ -74,6 +74,8 @@ class DriveBase(BaseModel):
 
     jd: Optional[str] = None
 
+    jd_filename: Optional[str] = None
+
     status: str = "Published"
 
 
@@ -113,6 +115,8 @@ class DriveUpdate(BaseModel):
     registration_link: Optional[str] = None
 
     jd: Optional[str] = None
+
+    jd_filename: Optional[str] = None
 
     status: Optional[str] = None
 

@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from database import Base
 from database import engine
@@ -32,6 +33,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+
+app.mount(
+    "/uploads",
+    StaticFiles(
+        directory="uploads"
+    ),
+    name="uploads",
 )
 
 

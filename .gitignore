@@ -76,4 +76,6 @@ Thumbs.db
 # =========================
 
 logs/
-*.log
+*.logbackend/uploads/
+
+backend/uploads/

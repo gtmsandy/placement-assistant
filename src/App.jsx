@@ -30,30 +30,18 @@ import { ReminderProvider } from './context/ReminderContext'
 function App() {
   return (
     <StudentProvider>
-
       <PlacementProvider>
-
         <ApplicationProvider>
-
           <ReminderProvider>
 
             <BrowserRouter>
 
               <Routes>
 
-                {/* =========================
-                    LOGIN
-                ========================= */}
-
                 <Route
                   path="/"
                   element={<Login />}
                 />
-
-
-                {/* =========================
-                    STUDENT
-                ========================= */}
 
                 <Route
                   path="/student"
@@ -85,90 +73,44 @@ function App() {
                   element={<OpportunityDetails />}
                 />
 
-
-                {/* =========================
-                    ADMIN DASHBOARD
-                ========================= */}
-
                 <Route
                   path="/admin"
                   element={<AdminDashboard />}
                 />
-
-
-                {/* =========================
-                    ADMIN CREATE DRIVE
-                ========================= */}
 
                 <Route
                   path="/admin/create-drive"
                   element={<CreateDrive />}
                 />
 
-
-                {/* =========================
-                    ADMIN DRIVE PREVIEW
-                ========================= */}
-
                 <Route
                   path="/admin/drive-preview"
                   element={<DrivePreview />}
                 />
-
-
-                {/* =========================
-                    ADMIN DRIVE DETAILS
-                ========================= */}
 
                 <Route
                   path="/admin/drive/:id"
                   element={<AdminDriveDetails />}
                 />
 
-
-                {/* =========================
-                    ADMIN EDIT DRIVE
-                ========================= */}
-
                 <Route
                   path="/admin/edit-drive/:id"
                   element={<EditDrive />}
                 />
 
-
-                {/* =========================
-                    ADMIN APPLICATIONS
-                ========================= */}
-
                 <Route
                   path="/admin/applications"
-                  element={
-                    <ApplicationsManagement />
-                  }
+                  element={<ApplicationsManagement />}
                 />
-
-
-                {/* =========================
-                    ADMIN UPCOMING EVENTS
-                ========================= */}
 
                 <Route
                   path="/admin/upcoming-events"
-                  element={
-                    <UpcomingEvents />
-                  }
+                  element={<UpcomingEvents />}
                 />
-
-
-                {/* =========================
-                    ADMIN WITHDRAWN DRIVES
-                ========================= */}
 
                 <Route
                   path="/admin/withdrawn-drives"
-                  element={
-                    <WithdrawnDrives />
-                  }
+                  element={<WithdrawnDrives />}
                 />
 
               </Routes>
@@ -176,11 +118,8 @@ function App() {
             </BrowserRouter>
 
           </ReminderProvider>
-
         </ApplicationProvider>
-
       </PlacementProvider>
-
     </StudentProvider>
   )
 }

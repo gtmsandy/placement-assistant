@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
+import {
+  createDrive,
+  uploadJobDescription,
+} from '../../services/api'
+
 function CreateDrive() {
   const navigate = useNavigate()
 
@@ -29,6 +34,12 @@ function CreateDrive() {
       registrationLink: '',
       jd: null,
     })
+
+  const [submitting, setSubmitting] =
+    useState(false)
+
+  const [error, setError] =
+    useState('')
 
   const handleChange = (event) => {
     const {
@@ -59,9 +70,43 @@ function CreateDrive() {
   const handleFileChange = (
     event
   ) => {
+
     const file =
       event.target.files?.[0] ||
       null
+
+    if (!file) {
+      setFormData(
+        (previous) => ({
+          ...previous,
+          jd: null,
+        })
+      )
+
+      return
+    }
+
+    if (
+      file.type !==
+      'application/pdf'
+    ) {
+      setError(
+        'Only PDF files are allowed for the Job Description.'
+      )
+
+      event.target.value = ''
+
+      setFormData(
+        (previous) => ({
+          ...previous,
+          jd: null,
+        })
+      )
+
+      return
+    }
+
+    setError('')
 
     setFormData(
       (previous) => ({
@@ -71,23 +116,108 @@ function CreateDrive() {
     )
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (
+    event
+  ) => {
+
     event.preventDefault()
 
-    navigate(
-      '/admin/drive-preview',
-      {
-        state: {
-          drive: formData,
-        },
+    setError('')
+
+    if (
+      formData.jd &&
+      formData.jd.type !==
+        'application/pdf'
+    ) {
+      setError(
+        'Only PDF files are allowed for the Job Description.'
+      )
+
+      return
+    }
+
+    try {
+
+      setSubmitting(true)
+
+const drive = {
+  company_name: formData.companyName,
+  role: formData.role,
+  ctc: formData.ctc || null,
+  location: formData.location || null,
+
+  min_cgpa: Number(formData.minCgpa) || 0,
+  min_tenth: Number(formData.minTenth) || 0,
+  min_twelfth: Number(formData.minTwelfth) || 0,
+  max_backlogs: Number(formData.maxBacklogs) || 0,
+
+  branches: formData.branches || null,
+  gender: formData.gender || 'Any',
+  graduation_year:
+    Number(formData.graduationYear) || null,
+
+  resume_shortlisting:
+    Boolean(formData.resumeShortlisting),
+
+  deadline:
+    formData.deadline || null,
+
+  ppt:
+    formData.ppt || null,
+
+  online_test:
+    formData.ot || null,
+
+  interview:
+    formData.interview || null,
+
+  registration_link:
+    formData.registrationLink || null,
+
+  jd: '',
+
+  status: 'Published',
+}
+
+      const createdDrive =
+        await createDrive(drive)
+
+      if (
+        formData.jd
+      ) {
+
+        await uploadJobDescription(
+          createdDrive.id,
+          formData.jd
+        )
+
       }
-    )
+
+      navigate(
+        `/admin/drive/${createdDrive.id}`
+      )
+
+    } catch (submitError) {
+
+      console.error(
+        'Failed to create placement drive:',
+        submitError
+      )
+
+      setError(
+        submitError.message ||
+        'Failed to create placement drive.'
+      )
+
+    } finally {
+
+      setSubmitting(false)
+
+    }
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-
-      {/* Header */}
 
       <header className="border-b border-slate-200 bg-white px-6 py-4">
 
@@ -116,12 +246,24 @@ function CreateDrive() {
 
         </div>
 
+
+        {error && (
+
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4">
+
+            <p className="text-sm font-semibold text-red-700">
+              {error}
+            </p>
+
+          </div>
+
+        )}
+
+
         <form
           onSubmit={handleSubmit}
           className="space-y-6"
         >
-
-          {/* Company Details */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -153,6 +295,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div>
 
                 <label className="text-sm font-medium text-slate-700">
@@ -175,6 +318,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div>
 
                 <label className="text-sm font-medium text-slate-700">
@@ -195,6 +339,7 @@ function CreateDrive() {
                 />
 
               </div>
+
 
               <div>
 
@@ -221,7 +366,6 @@ function CreateDrive() {
 
           </section>
 
-          {/* Eligibility */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -253,6 +397,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div>
 
                 <label className="text-sm font-medium text-slate-700">
@@ -274,6 +419,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div>
 
                 <label className="text-sm font-medium text-slate-700">
@@ -294,6 +440,7 @@ function CreateDrive() {
                 />
 
               </div>
+
 
               <div>
 
@@ -317,6 +464,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div className="md:col-span-2">
 
                 <label className="text-sm font-medium text-slate-700">
@@ -337,6 +485,7 @@ function CreateDrive() {
                 />
 
               </div>
+
 
               <div>
 
@@ -370,6 +519,7 @@ function CreateDrive() {
                 </select>
 
               </div>
+
 
               <div>
 
@@ -416,7 +566,6 @@ function CreateDrive() {
 
           </section>
 
-          {/* Recruitment Schedule */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -425,8 +574,6 @@ function CreateDrive() {
             </h2>
 
             <div className="mt-5 space-y-5">
-
-              {/* Resume Shortlisting */}
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
 
@@ -459,6 +606,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div>
 
                 <label className="text-sm font-medium text-slate-700">
@@ -478,6 +626,7 @@ function CreateDrive() {
                 />
 
               </div>
+
 
               <div>
 
@@ -499,6 +648,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div>
 
                 <label className="text-sm font-medium text-slate-700">
@@ -518,6 +668,7 @@ function CreateDrive() {
                 />
 
               </div>
+
 
               <div>
 
@@ -543,7 +694,6 @@ function CreateDrive() {
 
           </section>
 
-          {/* Registration & Documents */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -574,6 +724,7 @@ function CreateDrive() {
 
               </div>
 
+
               <div>
 
                 <label className="text-sm font-medium text-slate-700">
@@ -586,16 +737,22 @@ function CreateDrive() {
                     handleFileChange
                   }
                   type="file"
-                  accept=".pdf,.doc,.docx"
+                  accept=".pdf,application/pdf"
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3"
                 />
 
                 {formData.jd && (
+
                   <p className="mt-2 text-sm text-slate-500">
                     Selected:{' '}
                     {formData.jd.name}
                   </p>
+
                 )}
+
+                <p className="mt-2 text-xs text-slate-400">
+                  PDF files only.
+                </p>
 
               </div>
 
@@ -603,7 +760,6 @@ function CreateDrive() {
 
           </section>
 
-          {/* Buttons */}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
 
@@ -612,16 +768,21 @@ function CreateDrive() {
               onClick={() =>
                 navigate('/admin')
               }
-              className="rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 hover:bg-slate-50"
+              disabled={submitting}
+              className="rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>
 
+
             <button
               type="submit"
-              className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700"
+              disabled={submitting}
+              className="rounded-lg bg-blue-600 px-6 py-3 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Create Drive
+              {submitting
+                ? 'Creating Drive...'
+                : 'Create Drive'}
             </button>
 
           </div>

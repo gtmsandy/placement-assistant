@@ -2,10 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { withdrawDrive } from '../../services/api'
 
-
 const API_BASE_URL =
   'http://127.0.0.1:8000'
-
 
 function AdminDriveDetails() {
   const navigate = useNavigate()
@@ -23,13 +21,9 @@ function AdminDriveDetails() {
   const [withdrawing, setWithdrawing] =
     useState(false)
 
-
   useEffect(() => {
-
     const loadDrive = async () => {
-
       try {
-
         setLoading(true)
         setError('')
 
@@ -55,7 +49,6 @@ function AdminDriveDetails() {
         setDrive(data)
 
       } catch (error) {
-
         console.error(
           'Failed to load drive:',
           error
@@ -67,20 +60,15 @@ function AdminDriveDetails() {
         )
 
       } finally {
-
         setLoading(false)
-
       }
-
     }
 
     loadDrive()
-
   }, [id])
 
 
   const formatDate = (date) => {
-
     if (!date) {
       return 'Not specified'
     }
@@ -109,8 +97,39 @@ function AdminDriveDetails() {
   }
 
 
-  const handleWithdraw = async () => {
+  const getJdUrl = () => {
+    if (!drive?.jd) {
+      return ''
+    }
 
+    if (
+      drive.jd.startsWith('http://') ||
+      drive.jd.startsWith('https://')
+    ) {
+      return drive.jd
+    }
+
+    return `${API_BASE_URL}${drive.jd}`
+  }
+
+
+  const handleViewJd = () => {
+    const jdUrl =
+      getJdUrl()
+
+    if (!jdUrl) {
+      return
+    }
+
+    window.open(
+      jdUrl,
+      '_blank',
+      'noopener,noreferrer'
+    )
+  }
+
+
+  const handleWithdraw = async () => {
     if (!drive) {
       return
     }
@@ -127,7 +146,6 @@ function AdminDriveDetails() {
     }
 
     try {
-
       setWithdrawing(true)
       setError('')
 
@@ -145,7 +163,6 @@ function AdminDriveDetails() {
       )
 
     } catch (error) {
-
       console.error(
         'Failed to withdraw drive:',
         error
@@ -157,18 +174,13 @@ function AdminDriveDetails() {
       )
 
     } finally {
-
       setWithdrawing(false)
-
     }
-
   }
 
 
   if (loading) {
-
     return (
-
       <div className="min-h-screen bg-slate-50 p-6">
 
         <div className="mx-auto max-w-4xl rounded-2xl bg-white p-10 text-center shadow-sm">
@@ -180,16 +192,12 @@ function AdminDriveDetails() {
         </div>
 
       </div>
-
     )
-
   }
 
 
   if (error && !drive) {
-
     return (
-
       <div className="min-h-screen bg-slate-50 p-6">
 
         <div className="mx-auto max-w-xl rounded-2xl bg-white p-8 text-center shadow-sm">
@@ -215,9 +223,7 @@ function AdminDriveDetails() {
         </div>
 
       </div>
-
     )
-
   }
 
 
@@ -227,7 +233,6 @@ function AdminDriveDetails() {
 
 
   return (
-
     <div className="min-h-screen bg-slate-50 pb-10">
 
       <header className="border-b border-slate-200 bg-white px-6 py-5">
@@ -284,10 +289,7 @@ function AdminDriveDetails() {
 
       <main className="mx-auto max-w-5xl space-y-6 px-5 py-8">
 
-        {/* Error */}
-
         {error && (
-
           <div className="rounded-xl border border-red-200 bg-red-50 p-4">
 
             <p className="font-semibold text-red-700">
@@ -299,7 +301,6 @@ function AdminDriveDetails() {
             </p>
 
           </div>
-
         )}
 
 
@@ -490,8 +491,6 @@ function AdminDriveDetails() {
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
 
-            {/* Resume Shortlisting */}
-
             <div className="rounded-xl bg-slate-50 p-4 sm:col-span-2">
 
               <div className="flex items-center justify-between gap-4">
@@ -527,12 +526,10 @@ function AdminDriveDetails() {
 
 
               {drive.resume_shortlisting && (
-
                 <p className="mt-2 text-xs text-slate-500">
                   Resumes will be reviewed before
                   the next recruitment stage.
                 </p>
-
               )}
 
             </div>
@@ -649,17 +646,46 @@ function AdminDriveDetails() {
                 Job Description
               </p>
 
-              <p className="mt-1 text-sm text-slate-500">
-                {drive.jd ||
-                  'No JD uploaded'}
-              </p>
 
-              {drive.jd && (
+              {drive.jd ? (
 
-                <p className="mt-2 text-xs text-slate-400">
-                  JD file viewing will be connected
-                  to file storage later.
-                </p>
+                <div className="mt-2 flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+
+                  <div className="min-w-0">
+
+                    <p className="text-xs text-slate-500">
+                      PDF File
+                    </p>
+
+                    <p className="mt-1 break-all text-sm font-semibold text-slate-900">
+                      {drive.jd_filename ||
+                        'Job Description PDF'}
+                    </p>
+
+                  </div>
+
+
+                  <button
+                    type="button"
+                    onClick={
+                      handleViewJd
+                    }
+                    className="shrink-0 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    View PDF
+                  </button>
+
+                </div>
+
+              ) : (
+
+                <div className="mt-2 rounded-xl bg-slate-50 p-4">
+
+                  <p className="text-sm text-slate-500">
+                    No JD uploaded.
+                  </p>
+
+                </div>
 
               )}
 
@@ -736,9 +762,7 @@ function AdminDriveDetails() {
       </main>
 
     </div>
-
   )
 }
-
 
 export default AdminDriveDetails

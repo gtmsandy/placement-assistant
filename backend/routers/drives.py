@@ -1,6 +1,11 @@
+import os
+import uuid
+
 from fastapi import APIRouter
 from fastapi import Depends
+from fastapi import File
 from fastapi import HTTPException
+from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -13,6 +18,14 @@ from schemas import DriveUpdate
 router = APIRouter(
     prefix="/api/drives",
     tags=["Placement Drives"],
+)
+
+
+UPLOAD_DIR = "uploads/jd"
+
+os.makedirs(
+    UPLOAD_DIR,
+    exist_ok=True
 )
 
 
@@ -79,7 +92,10 @@ def create_drive(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to create placement drive: {str(error)}",
+            detail=(
+                "Failed to create placement drive: "
+                f"{str(error)}"
+            ),
         )
 
 
@@ -128,5 +144,102 @@ def update_drive(
 
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to update placement drive: {str(error)}",
+            detail=(
+                "Failed to update placement drive: "
+                f"{str(error)}"
+            ),
+        )
+
+
+@router.post(
+    "/{drive_id}/jd",
+    response_model=DriveResponse,
+)
+async def upload_job_description(
+    drive_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    drive = (
+        db.query(PlacementDrive)
+        .filter(
+            PlacementDrive.id == drive_id
+        )
+        .first()
+    )
+
+    if not drive:
+        raise HTTPException(
+            status_code=404,
+            detail="Placement drive not found",
+        )
+
+    if not file.filename:
+        raise HTTPException(
+            status_code=400,
+            detail="No file selected",
+        )
+
+    original_filename = file.filename
+
+    extension = os.path.splitext(
+        original_filename
+    )[1].lower()
+
+    if extension != ".pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files are allowed",
+        )
+
+    unique_name = (
+        f"{uuid.uuid4().hex}.pdf"
+    )
+
+    file_path = os.path.join(
+        UPLOAD_DIR,
+        unique_name
+    )
+
+    try:
+        with open(
+            file_path,
+            "wb"
+        ) as buffer:
+
+            while True:
+                chunk = await file.read(
+                    1024 * 1024
+                )
+
+                if not chunk:
+                    break
+
+                buffer.write(chunk)
+
+        drive.jd = (
+            f"/uploads/jd/{unique_name}"
+        )
+
+        drive.jd_filename = (
+            original_filename
+        )
+
+        db.commit()
+        db.refresh(drive)
+
+        return drive
+
+    except Exception as error:
+        db.rollback()
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to upload job description: "
+                f"{str(error)}"
+            ),
         )
