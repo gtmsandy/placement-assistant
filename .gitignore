@@ -76,6 +76,30 @@ Thumbs.db
 # =========================
 
 logs/
-*.logbackend/uploads/
+*.log
+
+
+# =========================
+# Uploaded Files
+# =========================
 
 backend/uploads/
+
+
+# =========================
+# Build / Coverage
+# =========================
+
+coverage/
+htmlcov/
+.pytest_cache/
+
+
+# =========================
+# Temporary Files
+# =========================
+
+*.tmp
+*.temp
+*.bak
+*.swp
