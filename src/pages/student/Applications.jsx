@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
+
 import { useApplications } from '../../context/ApplicationContext'
 import { usePlacements } from '../../context/PlacementContext'
 import ApplicationStatus from '../../components/ApplicationStatus'
+import StudentBottomNav from '../../components/StudentBottomNav'
 
 function Applications() {
   const navigate = useNavigate()
@@ -27,7 +29,8 @@ function Applications() {
       return 'Date not available'
     }
 
-    const parsedDate = new Date(date)
+    const parsedDate =
+      new Date(date)
 
     if (
       Number.isNaN(
@@ -48,7 +51,7 @@ function Applications() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-10">
+    <div className="min-h-screen bg-slate-50 pb-24">
 
       {/* Header */}
 
@@ -56,16 +59,7 @@ function Applications() {
 
         <div className="mx-auto max-w-5xl">
 
-          <button
-            onClick={() =>
-              navigate('/student')
-            }
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
-          >
-            ← Back to Dashboard
-          </button>
-
-          <h1 className="mt-4 text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-900">
             My Applications
           </h1>
 
@@ -150,30 +144,10 @@ function Applications() {
                     application.drive_id
                   )
 
-                /*
-                  Determine whether this
-                  particular placement drive
-                  requires resume shortlisting.
-                */
-
                 const resumeShortlisting =
                   Boolean(
                     drive?.resumeShortlisting
                   )
-
-                /*
-                  current_stage comes directly
-                  from the backend.
-
-                  Examples:
-
-                  Applied
-                  Resume Shortlisting
-                  PPT
-                  Online Test
-                  Interview
-                  Result
-                */
 
                 const currentStage =
                   application.current_stage ||
@@ -248,7 +222,7 @@ function Applications() {
 
                     </div>
 
-                    {/* Resume shortlisting information */}
+                    {/* Resume shortlisting */}
 
                     {resumeShortlisting && (
                       <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-3">
@@ -273,11 +247,9 @@ function Applications() {
                         status={
                           application.status
                         }
-
                         currentStage={
                           currentStage
                         }
-
                         resumeShortlisting={
                           resumeShortlisting
                         }
@@ -312,6 +284,10 @@ function Applications() {
         )}
 
       </main>
+
+      {/* Bottom Navigation */}
+
+      <StudentBottomNav active="applications" />
 
     </div>
   )

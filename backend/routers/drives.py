@@ -6,13 +6,19 @@ from fastapi import Depends
 from fastapi import File
 from fastapi import HTTPException
 from fastapi import UploadFile
+
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models import PlacementDrive
+from models import User
+
 from schemas import DriveCreate
 from schemas import DriveResponse
 from schemas import DriveUpdate
+
+from routers.auth import get_current_user
+from routers.auth import require_admin
 
 
 router = APIRouter(
@@ -34,6 +40,7 @@ os.makedirs(
     response_model=list[DriveResponse],
 )
 def get_drives(
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return (
@@ -49,6 +56,7 @@ def get_drives(
 )
 def get_drive(
     drive_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     drive = (
@@ -74,6 +82,7 @@ def get_drive(
 )
 def create_drive(
     drive_data: DriveCreate,
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     try:
@@ -106,6 +115,7 @@ def create_drive(
 def update_drive(
     drive_id: int,
     drive_data: DriveUpdate,
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     drive = (
@@ -158,6 +168,7 @@ def update_drive(
 async def upload_job_description(
     drive_id: int,
     file: UploadFile = File(...),
+    current_user: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     drive = (

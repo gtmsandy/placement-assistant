@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { usePlacements } from '../../context/PlacementContext'
 import { useStudent } from '../../context/StudentContext'
 import { checkEligibility } from '../../services/eligibilityService'
+import StudentBottomNav from '../../components/StudentBottomNav'
 
 function Calendar() {
   const navigate = useNavigate()
@@ -26,16 +27,6 @@ function Calendar() {
             drive
           )
 
-        /*
-          Only show events belonging to
-          placement drives for which the
-          current student is eligible.
-
-          Ineligible drives remain visible
-          on the Opportunities page, but
-          their recruitment events are not
-          shown in the student's calendar.
-        */
         if (!eligibility.eligible) {
           return
         }
@@ -93,11 +84,16 @@ function Calendar() {
         }
       })
 
-    return result.sort(
-      (a, b) =>
-        new Date(a.date) -
-        new Date(b.date)
-    )
+          return result
+          .filter(
+            (event) =>
+            new Date(event.date) >= new Date()
+          )
+            .sort(
+            (a, b) =>
+            new Date(a.date) -
+            new Date(b.date)
+        )
   }, [drives, student])
 
   const formatDate = (date) => {
@@ -167,7 +163,7 @@ function Calendar() {
     ).length
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-10">
+    <div className="min-h-screen bg-slate-50 pb-24">
 
       {/* Header */}
 
@@ -175,16 +171,7 @@ function Calendar() {
 
         <div className="mx-auto max-w-5xl">
 
-          <button
-            onClick={() =>
-              navigate('/student')
-            }
-            className="text-sm font-medium text-blue-600 hover:text-blue-700"
-          >
-            ← Back to Dashboard
-          </button>
-
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
             <div>
 
@@ -370,6 +357,10 @@ function Calendar() {
         </section>
 
       </main>
+
+      {/* Bottom Navigation */}
+
+      <StudentBottomNav active="calendar" />
 
     </div>
   )

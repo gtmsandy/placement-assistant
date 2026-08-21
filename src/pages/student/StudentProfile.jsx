@@ -1,22 +1,73 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useStudent } from '../../context/StudentContext'
+import {
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+
+import {
+  useNavigate,
+} from 'react-router-dom'
+
+import {
+  useStudent,
+} from '../../context/StudentContext'
+
 
 function StudentProfile() {
-  const navigate = useNavigate()
+
+  const navigate =
+    useNavigate()
+
+
   const {
     student,
     updateStudent,
+    uploadResume,
     loading,
   } = useStudent()
 
-  const [formData, setFormData] = useState(student)
+
+  const [
+    formData,
+    setFormData,
+  ] = useState(student)
+
+
+  const [
+    selectedResume,
+    setSelectedResume,
+  ] = useState(null)
+
+
+  const [
+    saving,
+    setSaving,
+  ] = useState(false)
+
+
+  const fileInputRef =
+    useRef(null)
+
+
+  /* =========================
+     SYNC FORM WITH STUDENT
+  ========================= */
 
   useEffect(() => {
+
     setFormData(student)
+
   }, [student])
 
-  const handleChange = (event) => {
+
+  /* =========================
+     INPUT CHANGE
+  ========================= */
+
+  const handleChange = (
+    event
+  ) => {
+
     const {
       name,
       value,
@@ -24,92 +75,249 @@ function StudentProfile() {
       checked,
     } = event.target
 
-    setFormData((previous) => ({
-      ...previous,
-      [name]:
-        type === 'checkbox'
-          ? checked
-          : value,
-    }))
+
+    setFormData(
+      previous => ({
+        ...previous,
+
+        [name]:
+          type === 'checkbox'
+            ? checked
+            : value,
+      })
+    )
   }
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
 
-    const updatedStudent = {
-      ...formData,
+  /* =========================
+     RESUME CHANGE
+  ========================= */
 
-      tenthPercentage:
-        Number(
-          formData.tenthPercentage
-        ),
+  const handleResumeChange =
+    event => {
 
-      twelfthPercentage:
-        Number(
-          formData.twelfthPercentage
-        ),
+      const file =
+        event.target.files?.[0]
 
-      cgpa:
-        Number(formData.cgpa),
 
-      activeBacklogs:
-        Number(
-          formData.activeBacklogs
-        ),
+      if (!file) {
+        return
+      }
 
-      graduationYear:
-        String(
-          formData.graduationYear
-        ),
+
+      const allowedTypes = [
+
+        'application/pdf',
+
+        'application/msword',
+
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+
+      ]
+
+
+      const extension =
+        file.name
+          .split('.')
+          .pop()
+          ?.toLowerCase()
+
+
+      if (
+        !allowedTypes.includes(
+          file.type
+        ) &&
+        ![
+          'pdf',
+          'doc',
+          'docx',
+        ].includes(extension)
+      ) {
+
+        alert(
+          'Please select a PDF, DOC, or DOCX file.'
+        )
+
+
+        event.target.value = ''
+
+
+        return
+      }
+
+
+      setSelectedResume(
+        file
+      )
     }
 
-    const result =
-      await updateStudent(
-        updatedStudent
-      )
 
-    if (result) {
-      alert(
-        'Profile updated successfully!'
-      )
+  /* =========================
+     SAVE PROFILE
+  ========================= */
 
-      navigate('/student')
+  const handleSubmit =
+    async event => {
+
+      event.preventDefault()
+
+
+      if (saving) {
+        return
+      }
+
+
+      setSaving(true)
+
+
+      try {
+
+        const updatedStudent = {
+
+          ...formData,
+
+          tenthPercentage:
+            Number(
+              formData.tenthPercentage
+            ),
+
+          twelfthPercentage:
+            Number(
+              formData.twelfthPercentage
+            ),
+
+          cgpa:
+            Number(
+              formData.cgpa
+            ),
+
+          activeBacklogs:
+            Number(
+              formData.activeBacklogs
+            ),
+
+          graduationYear:
+            String(
+              formData.graduationYear
+            ),
+        }
+
+
+        /*
+          STEP 1
+          Save profile information.
+        */
+
+        const profileResult =
+          await updateStudent(
+            updatedStudent
+          )
+
+
+        if (!profileResult) {
+          return
+        }
+
+
+        /*
+          STEP 2
+          Upload ONLY if the user
+          selected a new resume.
+        */
+
+        if (selectedResume) {
+
+          const resumeResult =
+            await uploadResume(
+              selectedResume
+            )
+
+
+          if (!resumeResult) {
+            return
+          }
+
+
+          /*
+            Clear only the temporary
+            browser file selection.
+
+            The actual resume remains
+            stored in the backend.
+          */
+
+          setSelectedResume(
+            null
+          )
+
+
+          if (
+            fileInputRef.current
+          ) {
+
+            fileInputRef.current.value =
+              ''
+          }
+        }
+
+
+        alert(
+          'Profile updated successfully!'
+        )
+
+      } finally {
+
+        setSaving(false)
+      }
     }
-  }
+
+
+  /* =========================
+     LOADING
+  ========================= */
 
   if (loading) {
+
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
+
         <div className="rounded-xl bg-white px-6 py-5 shadow-sm">
+
           <p className="text-sm text-slate-500">
             Loading student profile...
           </p>
+
         </div>
+
       </div>
     )
   }
 
+
   return (
     <div className="min-h-screen bg-slate-50">
-
-      {/* Header */}
 
       <header className="border-b border-slate-200 bg-white px-5 py-5">
 
         <div className="mx-auto max-w-3xl">
 
           <button
+            type="button"
             onClick={() =>
-              navigate('/student')
+              navigate(
+                '/student'
+              )
             }
             className="text-sm font-medium text-blue-600 hover:text-blue-700"
           >
             ← Back to Dashboard
           </button>
 
+
           <h1 className="mt-4 text-2xl font-bold text-slate-900">
             Student Profile
           </h1>
+
 
           <p className="mt-1 text-sm text-slate-500">
             Keep your academic and personal
@@ -120,14 +328,19 @@ function StudentProfile() {
 
       </header>
 
+
       <main className="mx-auto max-w-3xl px-5 py-8">
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="space-y-6"
         >
 
-          {/* Personal Details */}
+          {/* =========================
+              PERSONAL DETAILS
+          ========================= */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -135,9 +348,8 @@ function StudentProfile() {
               Personal Details
             </h2>
 
-            <div className="mt-5 grid gap-5 md:grid-cols-2">
 
-              {/* Full Name */}
+            <div className="mt-5 grid gap-5 md:grid-cols-2">
 
               <div>
 
@@ -150,7 +362,9 @@ function StudentProfile() {
                   value={
                     formData.name || ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="text"
                   required
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
@@ -158,7 +372,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* Roll Number */}
 
               <div>
 
@@ -172,7 +385,9 @@ function StudentProfile() {
                     formData.rollNumber ||
                     ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="text"
                   required
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
@@ -180,7 +395,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* College Email */}
 
               <div>
 
@@ -194,7 +408,9 @@ function StudentProfile() {
                     formData.collegeEmail ||
                     ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="email"
                   required
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
@@ -207,7 +423,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* Mobile */}
 
               <div>
 
@@ -218,9 +433,12 @@ function StudentProfile() {
                 <input
                   name="mobile"
                   value={
-                    formData.mobile || ''
+                    formData.mobile ||
+                    ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="tel"
                   placeholder="10-digit mobile number"
                   maxLength="10"
@@ -229,7 +447,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* Personal Email */}
 
               <div className="md:col-span-2">
 
@@ -243,7 +460,9 @@ function StudentProfile() {
                     formData.personalEmail ||
                     ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="email"
                   placeholder="yourpersonal@gmail.com"
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
@@ -251,7 +470,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* Gender */}
 
               <div>
 
@@ -262,9 +480,12 @@ function StudentProfile() {
                 <select
                   name="gender"
                   value={
-                    formData.gender || 'Male'
+                    formData.gender ||
+                    'Male'
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                 >
 
@@ -284,7 +505,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* PwD */}
 
               <div className="flex items-center pt-7">
 
@@ -297,7 +517,9 @@ function StudentProfile() {
                         formData.speciallyAbled
                       )
                     }
-                    onChange={handleChange}
+                    onChange={
+                      handleChange
+                    }
                     type="checkbox"
                     className="h-4 w-4"
                   />
@@ -312,7 +534,10 @@ function StudentProfile() {
 
           </section>
 
-          {/* Academic Details */}
+
+          {/* =========================
+              ACADEMIC DETAILS
+          ========================= */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -320,9 +545,8 @@ function StudentProfile() {
               Academic Details
             </h2>
 
-            <div className="mt-5 grid gap-5 md:grid-cols-2">
 
-              {/* 10th */}
+            <div className="mt-5 grid gap-5 md:grid-cols-2">
 
               <div>
 
@@ -336,7 +560,9 @@ function StudentProfile() {
                     formData.tenthPercentage ??
                     ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="number"
                   min="0"
                   max="100"
@@ -347,7 +573,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* 12th */}
 
               <div>
 
@@ -361,7 +586,9 @@ function StudentProfile() {
                     formData.twelfthPercentage ??
                     ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="number"
                   min="0"
                   max="100"
@@ -372,7 +599,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* CGPA */}
 
               <div>
 
@@ -383,9 +609,12 @@ function StudentProfile() {
                 <input
                   name="cgpa"
                   value={
-                    formData.cgpa ?? ''
+                    formData.cgpa ??
+                    ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="number"
                   min="0"
                   max="10"
@@ -396,7 +625,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* Branch */}
 
               <div>
 
@@ -407,9 +635,12 @@ function StudentProfile() {
                 <select
                   name="branch"
                   value={
-                    formData.branch || 'CSE'
+                    formData.branch ||
+                    'CSE'
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                 >
 
@@ -445,7 +676,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* Graduation Year */}
 
               <div>
 
@@ -459,7 +689,9 @@ function StudentProfile() {
                     formData.graduationYear ??
                     ''
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="number"
                   required
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
@@ -467,7 +699,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* Active Backlogs */}
 
               <div>
 
@@ -481,7 +712,9 @@ function StudentProfile() {
                     formData.activeBacklogs ??
                     0
                   }
-                  onChange={handleChange}
+                  onChange={
+                    handleChange
+                  }
                   type="number"
                   min="0"
                   required
@@ -490,7 +723,6 @@ function StudentProfile() {
 
               </div>
 
-              {/* History of Backlogs */}
 
               <div className="md:col-span-2">
 
@@ -503,7 +735,9 @@ function StudentProfile() {
                         formData.historyOfBacklogs
                       )
                     }
-                    onChange={handleChange}
+                    onChange={
+                      handleChange
+                    }
                     type="checkbox"
                     className="h-4 w-4"
                   />
@@ -519,7 +753,10 @@ function StudentProfile() {
 
           </section>
 
-          {/* Resume */}
+
+          {/* =========================
+              RESUME
+          ========================= */}
 
           <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -527,33 +764,143 @@ function StudentProfile() {
               Resume
             </h2>
 
+
             <p className="mt-1 text-sm text-slate-500">
               Upload your latest resume.
             </p>
 
-            <input
-              name="resume"
-              type="file"
-              accept=".pdf,.doc,.docx"
-              className="mt-5 w-full rounded-lg border border-slate-300 bg-white px-4 py-3"
-            />
 
-            <p className="mt-2 text-xs text-slate-400">
-              Resume upload will be connected
-              to backend storage later.
-            </p>
+            {/* CURRENT RESUME */}
+
+            {formData.resumeFilename && (
+
+              <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+
+                <div className="min-w-0">
+
+                  <p className="text-xs font-medium text-green-700">
+                    Current resume
+                  </p>
+
+
+                  <p className="mt-1 truncate text-sm font-semibold text-green-900">
+                    {formData.resumeFilename}
+                  </p>
+
+                </div>
+
+
+                {formData.resumeUrl && (
+
+                  <a
+                    href={`http://127.0.0.1:8000${formData.resumeUrl}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    View
+                  </a>
+
+                )}
+
+              </div>
+
+            )}
+
+
+            {/* FILE PICKER */}
+
+            <div className="mt-5">
+
+              <input
+                ref={
+                  fileInputRef
+                }
+                id="resume-upload"
+                name="resume"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={
+                  handleResumeChange
+                }
+                className="sr-only"
+              />
+
+
+              <label
+                htmlFor="resume-upload"
+                className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-slate-300 bg-white px-4 py-3 transition hover:border-blue-400 hover:bg-slate-50"
+              >
+
+                <span className="min-w-0">
+
+                  <span className="block truncate text-sm font-medium text-slate-700">
+
+                    {selectedResume
+                      ? selectedResume.name
+                      : 'Choose a resume'}
+
+                  </span>
+
+
+                  <span className="mt-1 block text-xs text-slate-400">
+                    PDF, DOC or DOCX
+                  </span>
+
+                </span>
+
+
+                <span className="shrink-0 rounded-lg bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-600">
+                  Browse
+                </span>
+
+              </label>
+
+            </div>
+
+
+            {/* NEW RESUME MESSAGE */}
+
+            {selectedResume && (
+
+              <p className="mt-3 text-xs font-medium text-blue-600">
+                New resume selected. It will replace
+                your current resume when you save.
+              </p>
+
+            )}
+
+
+            {/* NO RESUME */}
+
+            {!selectedResume &&
+              !formData.resumeFilename && (
+
+                <p className="mt-3 text-xs text-slate-400">
+                  No resume uploaded yet.
+                </p>
+
+            )}
 
           </section>
 
-          {/* Save */}
+
+          {/* =========================
+              SAVE BUTTON
+          ========================= */}
 
           <div className="flex justify-end">
 
             <button
               type="submit"
-              className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
+              disabled={saving}
+              className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Save Profile
+
+              {saving
+                ? 'Saving...'
+                : 'Save Profile'}
+
             </button>
 
           </div>
@@ -565,5 +912,6 @@ function StudentProfile() {
     </div>
   )
 }
+
 
 export default StudentProfile

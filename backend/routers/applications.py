@@ -27,28 +27,19 @@ def check_eligibility(
             f"{drive.min_cgpa}"
         )
 
-    if (
-        student.tenth_percentage
-        < drive.min_tenth
-    ):
+    if student.tenth_percentage < drive.min_tenth:
         return False, (
             f"Minimum 10th percentage required: "
             f"{drive.min_tenth}"
         )
 
-    if (
-        student.twelfth_percentage
-        < drive.min_twelfth
-    ):
+    if student.twelfth_percentage < drive.min_twelfth:
         return False, (
             f"Minimum 12th percentage required: "
             f"{drive.min_twelfth}"
         )
 
-    if (
-        student.active_backlogs
-        > drive.max_backlogs
-    ):
+    if student.active_backlogs > drive.max_backlogs:
         return False, (
             f"Maximum backlogs allowed: "
             f"{drive.max_backlogs}"
@@ -58,12 +49,10 @@ def check_eligibility(
         allowed_branches = [
             branch.strip().upper()
             for branch in drive.branches.split(",")
+            if branch.strip()
         ]
 
-        if (
-            student.branch.upper()
-            not in allowed_branches
-        ):
+        if student.branch.upper() not in allowed_branches:
             return False, (
                 "Your branch is not eligible"
             )
@@ -116,8 +105,7 @@ def create_application(
     student = (
         db.query(Student)
         .filter(
-            Student.id
-            == application_data.student_id
+            Student.id == application_data.student_id
         )
         .first()
     )
@@ -131,8 +119,7 @@ def create_application(
     drive = (
         db.query(PlacementDrive)
         .filter(
-            PlacementDrive.id
-            == application_data.drive_id
+            PlacementDrive.id == application_data.drive_id
         )
         .first()
     )
@@ -177,11 +164,16 @@ def create_application(
             detail=reason,
         )
 
+    initial_stage = "Applied"
+
+    if drive.resume_shortlisting:
+        initial_stage = "Resume Shortlisting"
+
     application = Application(
         student_id=application_data.student_id,
         drive_id=application_data.drive_id,
         status="Applied",
-        current_stage="Applied",
+        current_stage=initial_stage,
     )
 
     db.add(application)
@@ -246,8 +238,7 @@ def update_application_status(
     drive = (
         db.query(PlacementDrive)
         .filter(
-            PlacementDrive.id
-            == application.drive_id
+            PlacementDrive.id == application.drive_id
         )
         .first()
     )

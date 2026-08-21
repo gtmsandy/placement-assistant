@@ -1,35 +1,19 @@
 import { useNavigate } from 'react-router-dom'
+
 import { usePlacements } from '../../context/PlacementContext'
 import { useStudent } from '../../context/StudentContext'
 import { useApplications } from '../../context/ApplicationContext'
 import { checkEligibility } from '../../services/eligibilityService'
+import StudentBottomNav from '../../components/StudentBottomNav'
 
 function StudentDashboard() {
   const navigate = useNavigate()
 
-  const { drives } = usePlacements()
-  const { student } = useStudent()
-  const { applications } = useApplications()
+  const { drives = [] } = usePlacements()
+  const { student = {} } = useStudent()
+  const { applications = [] } = useApplications()
 
-  const formatDate = (date) => {
-    if (!date) {
-      return 'Not specified'
-    }
-
-    const parsedDate = new Date(date)
-
-    if (Number.isNaN(parsedDate.getTime())) {
-      return date
-    }
-
-    return parsedDate.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
-  }
+  const now = new Date()
 
   const opportunities = drives
     .filter(
@@ -42,65 +26,29 @@ function StudentDashboard() {
         drive
       )
 
+      const isExpired =
+        drive.deadline &&
+        new Date(drive.deadline) < now
+
       return {
         ...drive,
         eligibility,
+        isExpired,
       }
     })
 
   const eligibleOpportunities =
     opportunities.filter(
       (opportunity) =>
-        opportunity.eligibility.eligible
+        opportunity.eligibility?.eligible &&
+        !opportunity.isExpired
     )
 
-  const upcomingEvents = opportunities
-    .filter(
-      (opportunity) =>
-        opportunity.eligibility.eligible
-    )
-    .flatMap((opportunity) => {
-      const events = []
-
-      if (opportunity.ppt) {
-        events.push({
-          id: `${opportunity.id}-ppt`,
-          driveId: opportunity.id,
-          company: opportunity.companyName,
-          type: 'Pre-Placement Talk',
-          date: opportunity.ppt,
-          icon: '📅',
-        })
-      }
-
-      if (opportunity.ot) {
-        events.push({
-          id: `${opportunity.id}-ot`,
-          driveId: opportunity.id,
-          company: opportunity.companyName,
-          type: 'Online Test',
-          date: opportunity.ot,
-          icon: '💻',
-        })
-      }
-
-      if (opportunity.interview) {
-        events.push({
-          id: `${opportunity.id}-interview`,
-          driveId: opportunity.id,
-          company: opportunity.companyName,
-          type: 'Interview',
-          date: opportunity.interview,
-          icon: '🎯',
-        })
-      }
-
-      return events
-    })
-    .sort(
-      (a, b) =>
-        new Date(a.date) - new Date(b.date)
-    )
+  const studentName =
+    student?.name ||
+    student?.fullName ||
+    student?.username ||
+    'Student'
 
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
@@ -118,10 +66,7 @@ function StudentDashboard() {
             </p>
 
             <h1 className="mt-1 text-2xl font-bold text-slate-900">
-              {student.name ||
-                student.fullName ||
-                'Student'}{' '}
-              👋
+              {studentName} 👋
             </h1>
 
             <p className="mt-1 text-sm text-slate-500">
@@ -194,7 +139,7 @@ function StudentDashboard() {
             </h2>
 
             <span className="text-sm text-slate-500">
-              {opportunities.length} available
+              {opportunities.length} published
             </span>
 
           </div>
@@ -219,212 +164,202 @@ function StudentDashboard() {
             ) : (
 
               opportunities.map(
-                (opportunity) => (
+                (opportunity) => {
 
-                  <div
-                    key={opportunity.id}
-                    className="rounded-2xl bg-white p-5 shadow-sm"
-                  >
+                  const isEligible =
+                    opportunity.eligibility?.eligible
 
-                    <div className="flex items-start justify-between gap-4">
+                  const isExpired =
+                    opportunity.isExpired
 
-                      <div>
+                  return (
+                    <div
+                      key={opportunity.id}
+                      className={`rounded-2xl bg-white p-5 shadow-sm ${
+                        isExpired
+                          ? 'opacity-75'
+                          : ''
+                      }`}
+                    >
 
-                        <h3 className="text-lg font-bold text-slate-900">
-                          {opportunity.companyName}
-                        </h3>
+                      {/* Company and status */}
 
-                        <p className="mt-1 text-sm text-slate-500">
-                          {opportunity.role}
-                        </p>
+                      <div className="flex items-start justify-between gap-4">
+
+                        <div>
+
+                          <h3 className="text-lg font-bold text-slate-900">
+                            {opportunity.companyName}
+                          </h3>
+
+                          <p className="mt-1 text-sm text-slate-500">
+                            {opportunity.role}
+                          </p>
+
+                        </div>
+
+                        {isExpired ? (
+
+                          <span className="shrink-0 rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
+                            Expired
+                          </span>
+
+                        ) : isEligible ? (
+
+                          <span className="shrink-0 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                            Eligible
+                          </span>
+
+                        ) : (
+
+                          <span className="shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                            Not Eligible
+                          </span>
+
+                        )}
 
                       </div>
 
-                      {opportunity.eligibility.eligible ? (
+                      {/* CTC and Location */}
 
-                        <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                          Eligible
-                        </span>
+                      <div className="mt-4">
 
-                      ) : (
+                        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
 
-                        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                          Not Eligible
-                        </span>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {opportunity.ctc ||
+                              'CTC not specified'}
+                          </p>
 
-                      )}
+                          {opportunity.location && (
 
-                    </div>
+                            <p className="text-xs text-slate-500">
+                              📍 {opportunity.location}
+                            </p>
 
-                    {/* CTC and Location */}
+                          )}
 
-                    <div className="mt-4">
+                        </div>
 
-                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                        {/* Deadline */}
 
-                        <p className="text-sm font-semibold text-slate-900">
-                          {opportunity.ctc ||
-                            'CTC not specified'}
-                        </p>
+                        {opportunity.deadline && (
 
-                        {opportunity.location && (
+                          <p
+                            className={`mt-2 text-xs ${
+                              isExpired
+                                ? 'text-slate-500'
+                                : 'text-red-500'
+                            }`}
+                          >
 
-                          <p className="text-xs text-slate-500">
-                            📍 {opportunity.location}
+                            {isExpired
+                              ? 'Deadline passed: '
+                              : 'Deadline: '}
+
+                            {new Date(
+                              opportunity.deadline
+                            ).toLocaleString(
+                              'en-IN',
+                              {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              }
+                            )}
+
                           </p>
 
                         )}
 
                       </div>
 
-                      {/* Deadline */}
+                      {/* Expired information */}
 
-                      {opportunity.deadline && (
+                      {isExpired && (
 
-                        <p className="mt-2 text-xs text-red-500">
-                          Deadline:{' '}
-                          {formatDate(
-                            opportunity.deadline
-                          )}
-                        </p>
+                        <div className="mt-4 rounded-xl bg-slate-100 p-4">
+
+                          <p className="text-xs font-semibold text-slate-700">
+                            Registration Closed
+                          </p>
+
+                          <p className="mt-1 text-xs text-slate-500">
+                            The registration deadline for this
+                            placement drive has passed. You can
+                            no longer apply for this opportunity.
+                          </p>
+
+                        </div>
 
                       )}
 
+                      {/* Eligibility Reasons */}
+
+                      {!isExpired &&
+                        !isEligible && (
+
+                          <div className="mt-4 rounded-xl bg-red-50 p-4">
+
+                            <p className="text-xs font-semibold text-red-700">
+                              Why you're not eligible
+                            </p>
+
+                            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-red-600">
+
+                              {(
+                                opportunity
+                                  .eligibility
+                                  ?.reasons ||
+                                []
+                              ).map(
+                                (
+                                  reason,
+                                  index
+                                ) => (
+
+                                  <li
+                                    key={`${reason}-${index}`}
+                                  >
+                                    {reason}
+                                  </li>
+
+                                )
+                              )}
+
+                            </ul>
+
+                          </div>
+
+                        )}
+
+                      {/* View Opportunity */}
+
+                      <button
+                        onClick={() =>
+                          !isExpired &&
+                          navigate(
+                            `/student/opportunity/${opportunity.id}`
+                          )
+                        }
+                        disabled={isExpired}
+                        className={`mt-4 rounded-lg px-4 py-2 text-sm font-medium ${
+                          isExpired
+                            ? 'cursor-not-allowed bg-slate-200 text-slate-500'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                        }`}
+                      >
+                        {isExpired
+                          ? 'Registration Closed'
+                          : 'View Opportunity'}
+                      </button>
+
                     </div>
-
-                    {/* Eligibility Reasons */}
-
-                    {!opportunity.eligibility.eligible && (
-
-                      <div className="mt-4 rounded-xl bg-red-50 p-4">
-
-                        <p className="text-xs font-semibold text-red-700">
-                          Why you're not eligible
-                        </p>
-
-                        <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-red-600">
-
-                          {opportunity.eligibility.reasons.map(
-                            (reason, index) => (
-
-                              <li
-                                key={`${reason}-${index}`}
-                              >
-                                {reason}
-                              </li>
-
-                            )
-                          )}
-
-                        </ul>
-
-                      </div>
-
-                    )}
-
-                    {/* View Opportunity */}
-
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/student/opportunity/${opportunity.id}`
-                        )
-                      }
-                      className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-                    >
-                      View Opportunity
-                    </button>
-
-                  </div>
-
-                )
+                  )
+                }
               )
-
-            )}
-
-          </div>
-
-        </section>
-
-        {/* Upcoming Events */}
-
-        <section>
-
-          <div className="mb-4 flex items-center justify-between">
-
-            <h2 className="text-lg font-bold text-slate-900">
-              Upcoming
-            </h2>
-
-            <button
-              onClick={() =>
-                navigate('/student/calendar')
-              }
-              className="text-sm font-medium text-blue-600"
-            >
-              View Calendar
-            </button>
-
-          </div>
-
-          <div className="space-y-3">
-
-            {upcomingEvents.length === 0 ? (
-
-              <div className="rounded-2xl bg-white p-5 shadow-sm">
-
-                <p className="text-sm text-slate-500">
-                  No upcoming placement events.
-                </p>
-
-              </div>
-
-            ) : (
-
-              upcomingEvents
-                .slice(0, 5)
-                .map((event) => (
-
-                  <div
-                    key={event.id}
-                    className="rounded-2xl bg-white p-4 shadow-sm"
-                  >
-
-                    <div className="flex items-center justify-between gap-4">
-
-                      <div>
-
-                        <p className="font-semibold text-slate-900">
-                          {event.company}{' '}
-                          {event.type}
-                        </p>
-
-                        <p className="mt-1 text-sm text-slate-500">
-                          {formatDate(event.date)}
-                        </p>
-
-                      </div>
-
-                      <span className="text-xl">
-                        {event.icon}
-                      </span>
-
-                    </div>
-
-                    <button
-                      onClick={() =>
-                        navigate(
-                          `/student/opportunity/${event.driveId}`
-                        )
-                      }
-                      className="mt-3 text-sm font-medium text-blue-600"
-                    >
-                      View Drive →
-                    </button>
-
-                  </div>
-
-                ))
 
             )}
 
@@ -436,43 +371,7 @@ function StudentDashboard() {
 
       {/* Bottom Navigation */}
 
-      <nav className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white">
-
-        <div className="mx-auto flex max-w-5xl justify-around py-3">
-
-          <button
-            onClick={() =>
-              window.scrollTo({
-                top: 0,
-                behavior: 'smooth',
-              })
-            }
-            className="text-sm font-semibold text-blue-600"
-          >
-            Home
-          </button>
-
-          <button
-            onClick={() =>
-              navigate('/student/calendar')
-            }
-            className="text-sm text-slate-500 hover:text-blue-600"
-          >
-            Calendar
-          </button>
-
-          <button
-            onClick={() =>
-              navigate('/student/applications')
-            }
-            className="text-sm text-slate-500 hover:text-blue-600"
-          >
-            Applications
-          </button>
-
-        </div>
-
-      </nav>
+      <StudentBottomNav active="home" />
 
     </div>
   )

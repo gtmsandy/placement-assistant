@@ -28,6 +28,9 @@ class StudentBase(BaseModel):
 
     specially_abled: bool = False
 
+    resume_filename: Optional[str] = None
+    resume_url: Optional[str] = None
+
 
 class StudentCreate(StudentBase):
     pass

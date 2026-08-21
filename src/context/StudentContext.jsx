@@ -5,19 +5,26 @@ import {
   useState,
 } from 'react'
 
-const StudentContext = createContext()
+import {
+  getStudent,
+  updateStudent as updateStudentApi,
+  uploadResume as uploadResumeApi,
+  getStoredUser,
+} from '../services/api'
 
-const API_BASE_URL =
-  'http://127.0.0.1:8000'
+
+const StudentContext =
+  createContext()
+
 
 const initialStudent = {
-  id: 1,
 
-  name: 'Sandeep',
-  rollNumber: 'CSE2027',
+  id: null,
 
-  collegeEmail:
-    'sandeep@example.com',
+  name: '',
+  rollNumber: '',
+
+  collegeEmail: '',
 
   mobile: '',
   personalEmail: '',
@@ -25,22 +32,33 @@ const initialStudent = {
   gender: 'Male',
   speciallyAbled: false,
 
-  tenthPercentage: 81,
-  twelfthPercentage: 75,
-  cgpa: 7.4,
+  tenthPercentage: '',
+  twelfthPercentage: '',
+  cgpa: '',
 
-  branch: 'CSE',
-  graduationYear: '2027',
+  branch: '',
+  graduationYear: '',
 
   activeBacklogs: 0,
   historyOfBacklogs: false,
 
-  resume: null,
+  resumeFilename: null,
+  resumeUrl: null,
 }
 
-function mapStudentFromApi(student) {
+
+/* =========================
+   API → FRONTEND
+========================= */
+
+function mapStudentFromApi(
+  student
+) {
+
   return {
-    id: student.id,
+
+    id:
+      student.id,
 
     name:
       student.name || '',
@@ -61,16 +79,20 @@ function mapStudentFromApi(student) {
       student.gender || 'Male',
 
     speciallyAbled:
-      student.specially_abled || false,
+      student.specially_abled ||
+      false,
 
     tenthPercentage:
-      student.tenth_percentage ?? '',
+      student.tenth_percentage ??
+      '',
 
     twelfthPercentage:
-      student.twelfth_percentage ?? '',
+      student.twelfth_percentage ??
+      '',
 
     cgpa:
-      student.cgpa ?? '',
+      student.cgpa ??
+      '',
 
     branch:
       student.branch || '',
@@ -83,18 +105,44 @@ function mapStudentFromApi(student) {
         : '',
 
     activeBacklogs:
-      student.active_backlogs ?? 0,
+      student.active_backlogs ??
+      0,
 
     historyOfBacklogs:
       student.history_of_backlogs ||
       false,
 
-    resume: null,
+    /*
+      IMPORTANT
+
+      Do NOT set these to null.
+
+      The backend returns:
+      resume_filename
+      resume_url
+    */
+
+    resumeFilename:
+      student.resume_filename ||
+      null,
+
+    resumeUrl:
+      student.resume_url ||
+      null,
   }
 }
 
-function mapStudentToApi(student) {
+
+/* =========================
+   FRONTEND → API
+========================= */
+
+function mapStudentToApi(
+  student
+) {
+
   return {
+
     name:
       student.name || '',
 
@@ -114,7 +162,9 @@ function mapStudentToApi(student) {
       student.gender || 'Male',
 
     specially_abled:
-      student.speciallyAbled || false,
+      Boolean(
+        student.speciallyAbled
+      ),
 
     tenth_percentage:
       Number(
@@ -127,7 +177,9 @@ function mapStudentToApi(student) {
       ) || 0,
 
     cgpa:
-      Number(student.cgpa) || 0,
+      Number(
+        student.cgpa
+      ) || 0,
 
     branch:
       student.branch || '',
@@ -143,145 +195,296 @@ function mapStudentToApi(student) {
       ) || 0,
 
     history_of_backlogs:
-      student.historyOfBacklogs ||
-      false,
+      Boolean(
+        student.historyOfBacklogs
+      ),
   }
 }
+
+
+/* =========================
+   PROVIDER
+========================= */
 
 export function StudentProvider({
   children,
 }) {
-  const [student, setStudent] =
-    useState(initialStudent)
 
-  const [loading, setLoading] =
-    useState(true)
+  const [
+    student,
+    setStudent,
+  ] = useState(
+    initialStudent
+  )
 
-  const [error, setError] =
-    useState(null)
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(true)
+
+
+  const [
+    error,
+    setError,
+  ] = useState(null)
+
+
+  /* =========================
+     LOAD STUDENT
+  ========================= */
 
   useEffect(() => {
+
     async function loadStudent() {
+
       try {
+
         setLoading(true)
         setError(null)
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/students/1`
-        )
 
-        if (!response.ok) {
+        const user =
+          getStoredUser()
+
+
+        if (!user) {
+
           throw new Error(
-            'Failed to load student'
+            'User is not logged in'
           )
         }
 
+
+        if (!user.student_id) {
+
+          throw new Error(
+            'Student ID is missing from the logged-in user'
+          )
+        }
+
+
         const data =
-          await response.json()
+          await getStudent(
+            user.student_id
+          )
+
+
+        const mappedStudent =
+          mapStudentFromApi(
+            data
+          )
+
 
         setStudent(
-          mapStudentFromApi(data)
+          mappedStudent
         )
 
       } catch (error) {
+
         console.error(
           'Failed to load student:',
           error
         )
+
 
         setError(
           error.message ||
             'Failed to load student'
         )
 
-        setStudent(initialStudent)
+
+        setStudent(
+          initialStudent
+        )
+
       } finally {
+
         setLoading(false)
       }
     }
 
+
     loadStudent()
+
   }, [])
 
+
+  /* =========================
+     UPDATE PROFILE
+  ========================= */
+
   const updateStudent =
-    async (updatedData) => {
+    async (
+      updatedData
+    ) => {
+
       try {
+
         if (!student.id) {
+
           throw new Error(
             'Student ID is missing'
           )
         }
+
 
         const updatedStudent = {
           ...student,
           ...updatedData,
         }
 
+
         const apiStudent =
           mapStudentToApi(
             updatedStudent
           )
 
-        const response =
-          await fetch(
-            `${API_BASE_URL}/api/students/${student.id}`,
-            {
-              method: 'PATCH',
-
-              headers: {
-                'Content-Type':
-                  'application/json',
-              },
-
-              body: JSON.stringify(
-                apiStudent
-              ),
-            }
-          )
 
         const data =
-          await response.json()
-
-        if (!response.ok) {
-          throw new Error(
-            data.detail ||
-              'Failed to update student'
+          await updateStudentApi(
+            student.id,
+            apiStudent
           )
-        }
+
 
         const mappedStudent =
-          mapStudentFromApi(data)
+          mapStudentFromApi(
+            data
+          )
 
-        setStudent(mappedStudent)
+
+        setStudent(
+          mappedStudent
+        )
+
+
+        setError(null)
+
 
         return mappedStudent
 
       } catch (error) {
+
         console.error(
           'Failed to update student:',
           error
         )
+
 
         setError(
           error.message ||
             'Failed to update student'
         )
 
+
         alert(
           error.message ||
             'Failed to update student profile.'
         )
 
+
         return null
       }
     }
+
+
+  /* =========================
+     UPLOAD RESUME
+  ========================= */
+
+  const uploadResume =
+    async (
+      file
+    ) => {
+
+      try {
+
+        if (!student.id) {
+
+          throw new Error(
+            'Student ID is missing'
+          )
+        }
+
+
+        if (!file) {
+
+          throw new Error(
+            'Please select a resume file'
+          )
+        }
+
+
+        const data =
+          await uploadResumeApi(
+            student.id,
+            file
+          )
+
+
+        /*
+          Backend returns the complete
+          updated StudentResponse.
+
+          Map it and update React state.
+
+          THIS is what keeps the resume
+          visible after saving.
+        */
+
+        const mappedStudent =
+          mapStudentFromApi(
+            data
+          )
+
+
+        setStudent(
+          mappedStudent
+        )
+
+
+        setError(null)
+
+
+        return mappedStudent
+
+      } catch (error) {
+
+        console.error(
+          'Failed to upload resume:',
+          error
+        )
+
+
+        setError(
+          error.message ||
+            'Failed to upload resume'
+        )
+
+
+        alert(
+          error.message ||
+            'Failed to upload resume.'
+        )
+
+
+        return null
+      }
+    }
+
 
   return (
     <StudentContext.Provider
       value={{
         student,
+
         updateStudent,
+
+        uploadResume,
+
         loading,
+
         error,
       }}
     >
@@ -290,7 +493,13 @@ export function StudentProvider({
   )
 }
 
+
+/* =========================
+   HOOK
+========================= */
+
 export function useStudent() {
+
   return useContext(
     StudentContext
   )

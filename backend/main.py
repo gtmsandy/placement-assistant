@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -6,10 +8,17 @@ from database import Base
 from database import engine
 
 from routers import applications
+from routers import auth
 from routers import drives
 from routers import students
 
 import models
+
+
+os.makedirs(
+    "uploads/resumes",
+    exist_ok=True
+)
 
 
 Base.metadata.create_all(
@@ -55,6 +64,10 @@ app.include_router(
 
 app.include_router(
     applications.router
+)
+
+app.include_router(
+    auth.router
 )
 
 

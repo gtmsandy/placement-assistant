@@ -14,7 +14,9 @@ function ApplicationStatus({
         (normalizedStatus === 'selected'
           ? 'Result'
           : 'Applied')
-    ).trim()
+    )
+      .trim()
+      .toLowerCase()
 
   const steps = [
     {
@@ -54,7 +56,8 @@ function ApplicationStatus({
 
   const currentIndex = steps.findIndex(
     (step) =>
-      step.key === normalizedCurrentStage
+      step.key.toLowerCase() ===
+      normalizedCurrentStage
   )
 
   const isSelected =
@@ -64,30 +67,10 @@ function ApplicationStatus({
     normalizedStatus === 'rejected'
 
   const getStepState = (index) => {
-    /*
-      SELECTED
-
-      Once a student is selected,
-      the entire recruitment process
-      is considered completed.
-    */
     if (isSelected) {
       return 'completed'
     }
 
-    /*
-      REJECTED
-
-      Rejection happens at the actual
-      current recruitment stage.
-
-      Example:
-
-      currentStage = PPT
-      status = Rejected
-
-      Therefore PPT becomes rejected.
-    */
     if (isRejected) {
       if (
         currentIndex !== -1 &&
@@ -103,10 +86,6 @@ function ApplicationStatus({
         return 'rejected'
       }
 
-      /*
-        Fallback for old records where
-        current_stage was not stored.
-      */
       if (currentIndex === -1) {
         if (index === steps.length - 1) {
           return 'rejected'
@@ -122,10 +101,6 @@ function ApplicationStatus({
       return 'pending'
     }
 
-    /*
-      If the current stage is not found,
-      safely keep Applied as current.
-    */
     if (currentIndex === -1) {
       if (index === 0) {
         return 'current'
@@ -134,25 +109,14 @@ function ApplicationStatus({
       return 'pending'
     }
 
-    /*
-      Everything before the current stage
-      has already been completed.
-    */
     if (index < currentIndex) {
       return 'completed'
     }
 
-    /*
-      Current recruitment stage.
-    */
     if (index === currentIndex) {
       return 'current'
     }
 
-    /*
-      Everything after the current stage
-      is still pending.
-    */
     return 'pending'
   }
 
@@ -309,10 +273,10 @@ function ApplicationStatus({
 
           {normalizedCurrentStage &&
             normalizedCurrentStage !==
-              'Result' && (
+              'result' && (
               <p className="mt-1 text-xs text-red-700">
                 Recruitment stopped at:{' '}
-                {normalizedCurrentStage}
+                {currentStage || 'Unknown Stage'}
               </p>
             )}
 

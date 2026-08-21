@@ -4,6 +4,7 @@ from sqlalchemy import Boolean
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Float
+from sqlalchemy import ForeignKey
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
@@ -88,6 +89,50 @@ class Student(Base):
     specially_abled = Column(
         Boolean,
         default=False
+    )
+
+    resume_filename = Column(
+        String(255),
+        nullable=True
+    )
+
+    resume_url = Column(
+        String(500),
+        nullable=True
+    )
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
+
+    username = Column(
+        String(100),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    password_hash = Column(
+        String(255),
+        nullable=False
+    )
+
+    role = Column(
+        String(20),
+        nullable=False,
+        default="student"
+    )
+
+    student_id = Column(
+        Integer,
+        ForeignKey("students.id"),
+        nullable=True
     )
 
 
