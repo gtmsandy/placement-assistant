@@ -103,3 +103,10 @@ htmlcov/
 *.temp
 *.bak
 *.swp
+
+
+# =========================
+# Local Development Scripts
+# =========================
+
+backend/create_test_user.py
