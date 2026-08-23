@@ -2,6 +2,7 @@ import {
   BrowserRouter,
   Routes,
   Route,
+  Navigate,
 } from 'react-router-dom'
 
 import Login from './pages/auth/Login'
@@ -22,106 +23,265 @@ import ApplicationsManagement from './pages/admin/ApplicationsManagement'
 import WithdrawnDrives from './pages/admin/WithdrawnDrives'
 import UpcomingEvents from './pages/admin/UpcomingEvents'
 
+import ProtectedRoute from './components/ProtectedRoute'
+
 import { PlacementProvider } from './context/PlacementContext'
 import { StudentProvider } from './context/StudentContext'
 import { ApplicationProvider } from './context/ApplicationContext'
 import { ReminderProvider } from './context/ReminderContext'
 
-function App() {
-  return (
-    <StudentProvider>
-      <PlacementProvider>
-        <ApplicationProvider>
-          <ReminderProvider>
 
-            <BrowserRouter>
+function App() {
+
+  return (
+    <BrowserRouter>
+
+      <StudentProvider>
+
+        <PlacementProvider>
+
+          <ApplicationProvider>
+
+            <ReminderProvider>
 
               <Routes>
 
                 <Route
                   path="/"
+                  element={
+                    <Navigate
+                      to="/login"
+                      replace
+                    />
+                  }
+                />
+
+
+                <Route
+                  path="/login"
                   element={<Login />}
                 />
 
+
+                {/* =========================
+                    STUDENT ROUTES
+                ========================= */}
+
                 <Route
                   path="/student"
-                  element={<StudentDashboard />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'student',
+                      ]}
+                    >
+                      <StudentDashboard />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/student/profile"
-                  element={<StudentProfile />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'student',
+                      ]}
+                    >
+                      <StudentProfile />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/student/applications"
-                  element={<Applications />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'student',
+                      ]}
+                    >
+                      <Applications />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/student/calendar"
-                  element={<Calendar />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'student',
+                      ]}
+                    >
+                      <Calendar />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/student/reminders"
-                  element={<ReminderSettings />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'student',
+                      ]}
+                    >
+                      <ReminderSettings />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/student/opportunity/:id"
-                  element={<OpportunityDetails />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'student',
+                      ]}
+                    >
+                      <OpportunityDetails />
+                    </ProtectedRoute>
+                  }
                 />
+
+
+                {/* =========================
+                    ADMIN ROUTES
+                ========================= */}
 
                 <Route
                   path="/admin"
-                  element={<AdminDashboard />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <AdminDashboard />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/admin/create-drive"
-                  element={<CreateDrive />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <CreateDrive />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/admin/drive-preview"
-                  element={<DrivePreview />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <DrivePreview />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/admin/drive/:id"
-                  element={<AdminDriveDetails />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <AdminDriveDetails />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/admin/edit-drive/:id"
-                  element={<EditDrive />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <EditDrive />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/admin/applications"
-                  element={<ApplicationsManagement />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <ApplicationsManagement />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/admin/upcoming-events"
-                  element={<UpcomingEvents />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <UpcomingEvents />
+                    </ProtectedRoute>
+                  }
                 />
 
                 <Route
                   path="/admin/withdrawn-drives"
-                  element={<WithdrawnDrives />}
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={[
+                        'admin',
+                      ]}
+                    >
+                      <WithdrawnDrives />
+                    </ProtectedRoute>
+                  }
+                />
+
+
+                {/* =========================
+                    FALLBACK
+                ========================= */}
+
+                <Route
+                  path="*"
+                  element={
+                    <Navigate
+                      to="/login"
+                      replace
+                    />
+                  }
                 />
 
               </Routes>
 
-            </BrowserRouter>
+            </ReminderProvider>
 
-          </ReminderProvider>
-        </ApplicationProvider>
-      </PlacementProvider>
-    </StudentProvider>
+          </ApplicationProvider>
+
+        </PlacementProvider>
+
+      </StudentProvider>
+
+    </BrowserRouter>
   )
 }
+
 
 export default App

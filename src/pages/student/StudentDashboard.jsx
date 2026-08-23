@@ -4,6 +4,8 @@ import { usePlacements } from '../../context/PlacementContext'
 import { useStudent } from '../../context/StudentContext'
 import { useApplications } from '../../context/ApplicationContext'
 import { checkEligibility } from '../../services/eligibilityService'
+import { logoutUser } from '../../services/api'
+
 import StudentBottomNav from '../../components/StudentBottomNav'
 
 function StudentDashboard() {
@@ -50,6 +52,13 @@ function StudentDashboard() {
     student?.username ||
     'Student'
 
+  function handleLogout() {
+    logoutUser()
+    navigate('/login', {
+      replace: true,
+    })
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
 
@@ -57,7 +66,7 @@ function StudentDashboard() {
 
       <header className="bg-white px-5 py-6 shadow-sm">
 
-        <div className="mx-auto flex max-w-5xl items-start justify-between">
+        <div className="mx-auto flex max-w-5xl items-start justify-between gap-4">
 
           <div>
 
@@ -75,14 +84,25 @@ function StudentDashboard() {
 
           </div>
 
-          <button
-            onClick={() =>
-              navigate('/student/profile')
-            }
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            Profile
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+
+            <button
+              onClick={() =>
+                navigate('/student/profile')
+              }
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              Profile
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+            >
+              Logout
+            </button>
+
+          </div>
 
         </div>
 

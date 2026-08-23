@@ -1,13 +1,18 @@
-from datetime import datetime, timedelta
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from datetime import datetime, timedelta, timezone
 
 import bcrypt
 
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
-
-from fastapi.security import HTTPBearer
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.security import HTTPBearer
 
 from jose import JWTError
 from jose import jwt
@@ -18,8 +23,8 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import User
 from models import Student
+from models import User
 
 
 router = APIRouter(
@@ -28,12 +33,22 @@ router = APIRouter(
 )
 
 
-SECRET_KEY = "placement-assistant-secret-key-change-this"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET_KEY environment variable is not set"
+    )
+
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+TOKEN_TYPE = "access"
 
 
-security = HTTPBearer()
+security = HTTPBearer(
+    auto_error=False
+)
 
 
 class LoginRequest(BaseModel):
@@ -62,7 +77,9 @@ def hash_password(password: str):
     password_bytes = password.encode("utf-8")
 
     if len(password_bytes) > 72:
-        raise ValueError("Password cannot exceed 72 bytes")
+        raise ValueError(
+            "Password cannot exceed 72 bytes"
+        )
 
     return bcrypt.hashpw(
         password_bytes,
@@ -79,18 +96,23 @@ def verify_password(
     if len(password_bytes) > 72:
         return False
 
-    return bcrypt.checkpw(
-        password_bytes,
-        hashed_password.encode("utf-8")
-    )
+    try:
+        return bcrypt.checkpw(
+            password_bytes,
+            hashed_password.encode("utf-8")
+        )
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(
     user_id: int,
     role: str,
 ):
+    now = datetime.now(timezone.utc)
+
     expire = (
-        datetime.utcnow()
+        now
         + timedelta(
             minutes=ACCESS_TOKEN_EXPIRE_MINUTES
         )
@@ -99,6 +121,8 @@ def create_access_token(
     payload = {
         "sub": str(user_id),
         "role": role,
+        "type": TOKEN_TYPE,
+        "iat": now,
         "exp": expire,
     }
 
@@ -148,6 +172,9 @@ def login(
         raise HTTPException(
             status_code=401,
             detail="Invalid username/email or password",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
         )
 
     if not verify_password(
@@ -157,6 +184,9 @@ def login(
         raise HTTPException(
             status_code=401,
             detail="Invalid username/email or password",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            },
         )
 
     actual_role = (
@@ -184,11 +214,11 @@ def login(
 
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(
+        security
+    ),
     db: Session = Depends(get_db),
 ):
-    token = credentials.credentials
-
     credentials_exception = HTTPException(
         status_code=401,
         detail="Could not validate credentials",
@@ -197,6 +227,17 @@ def get_current_user(
         },
     )
 
+    if credentials is None:
+        raise credentials_exception
+
+    if credentials.scheme.lower() != "bearer":
+        raise credentials_exception
+
+    token = credentials.credentials
+
+    if not token:
+        raise credentials_exception
+
     try:
         payload = jwt.decode(
             token,
@@ -204,18 +245,22 @@ def get_current_user(
             algorithms=[ALGORITHM],
         )
 
+        token_type = payload.get("type")
+
+        if token_type != TOKEN_TYPE:
+            raise credentials_exception
+
         user_id = payload.get("sub")
 
         if user_id is None:
             raise credentials_exception
 
-        user_id = int(user_id)
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            raise credentials_exception
 
-    except (
-        JWTError,
-        ValueError,
-        TypeError,
-    ):
+    except JWTError:
         raise credentials_exception
 
     user = (
@@ -233,7 +278,9 @@ def get_current_user(
 
 
 def require_student(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     if current_user.role.lower() != "student":
         raise HTTPException(
@@ -245,7 +292,9 @@ def require_student(
 
 
 def require_admin(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(
+        get_current_user
+    ),
 ):
     if current_user.role.lower() != "admin":
         raise HTTPException(

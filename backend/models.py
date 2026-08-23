@@ -226,6 +226,11 @@ class PlacementDrive(Base):
         Text
     )
 
+    jd_filename = Column(
+        String(255),
+        nullable=True
+    )
+
     status = Column(
         String(30),
         default="Published"

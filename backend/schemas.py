@@ -7,17 +7,23 @@ from pydantic import ConfigDict
 
 class StudentBase(BaseModel):
     name: str
+
     email: str
+
     roll_no: str
 
     mobile: Optional[str] = None
+
     personal_email: Optional[str] = None
 
     branch: str
+
     graduation_year: int
 
     cgpa: float
+
     tenth_percentage: float
+
     twelfth_percentage: float
 
     active_backlogs: int = 0
@@ -29,6 +35,7 @@ class StudentBase(BaseModel):
     specially_abled: bool = False
 
     resume_filename: Optional[str] = None
+
     resume_url: Optional[str] = None
 
 
@@ -46,13 +53,17 @@ class StudentResponse(StudentBase):
 
 class DriveBase(BaseModel):
     company_name: str
+
     role: str
 
     ctc: Optional[str] = None
+
     location: Optional[str] = None
 
     min_cgpa: float = 0
+
     min_tenth: float = 0
+
     min_twelfth: float = 0
 
     max_backlogs: int = 0
@@ -88,13 +99,17 @@ class DriveCreate(DriveBase):
 
 class DriveUpdate(BaseModel):
     company_name: Optional[str] = None
+
     role: Optional[str] = None
 
     ctc: Optional[str] = None
+
     location: Optional[str] = None
 
     min_cgpa: Optional[float] = None
+
     min_tenth: Optional[float] = None
+
     min_twelfth: Optional[float] = None
 
     max_backlogs: Optional[int] = None
@@ -134,6 +149,7 @@ class DriveResponse(DriveBase):
 
 class ApplicationCreate(BaseModel):
     student_id: int
+
     drive_id: int
 
 

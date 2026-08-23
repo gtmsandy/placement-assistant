@@ -1,5 +1,10 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import {
+  useState,
+} from 'react'
+
+import {
+  useNavigate,
+} from 'react-router-dom'
 
 import {
   loginUser,
@@ -7,28 +12,34 @@ import {
 
 
 function Login() {
+
   const navigate =
     useNavigate()
+
 
   const [
     identifier,
     setIdentifier,
   ] = useState('')
 
+
   const [
     password,
     setPassword,
   ] = useState('')
+
 
   const [
     role,
     setRole,
   ] = useState('student')
 
+
   const [
     error,
     setError,
   ] = useState('')
+
 
   const [
     loading,
@@ -37,28 +48,73 @@ function Login() {
 
 
   const handleLogin =
-    async () => {
+    async (event) => {
+
+      event.preventDefault()
 
       setError('')
       setLoading(true)
 
       try {
 
+        if (
+          !identifier.trim()
+        ) {
+
+          throw new Error(
+            'Please enter your username or email'
+          )
+        }
+
+
+        if (!password) {
+
+          throw new Error(
+            'Please enter your password'
+          )
+        }
+
+
         const response =
           await loginUser(
-            identifier,
+            identifier.trim(),
             password,
             role
           )
 
 
         if (
+          !response ||
+          !response.user
+        ) {
+
+          throw new Error(
+            'Invalid response received from server'
+          )
+        }
+
+
+        if (
           response.user.role ===
           'admin'
         ) {
-          navigate('/admin')
+
+          navigate(
+            '/admin',
+            {
+              replace: true,
+            }
+          )
+
         } else {
-          navigate('/student')
+
+          navigate(
+            '/student',
+            {
+              replace: true,
+            }
+          )
+
         }
 
       } catch (error) {
@@ -69,8 +125,8 @@ function Login() {
         )
 
         setError(
-          error.message ||
-          'Unable to login'
+          error?.message ||
+          'Unable to login. Please check your credentials.'
         )
 
       } finally {
@@ -78,6 +134,7 @@ function Login() {
         setLoading(false)
 
       }
+
     }
 
 
@@ -86,16 +143,23 @@ function Login() {
 
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
 
-        <h1 className="text-3xl font-bold text-gray-900">
-          Placement Assistant
-        </h1>
+        <div>
 
-        <p className="mt-2 text-gray-500">
-          Manage your campus placement journey
-        </p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            Placement Assistant
+          </h1>
+
+          <p className="mt-2 text-gray-500">
+            Manage your campus placement journey
+          </p>
+
+        </div>
 
 
-        <div className="mt-8">
+        <form
+          className="mt-8"
+          onSubmit={handleLogin}
+        >
 
           <label className="block text-sm font-medium text-gray-700">
             Username or Email
@@ -104,13 +168,14 @@ function Login() {
           <input
             type="text"
             value={identifier}
-            onChange={(e) =>
+            onChange={(event) =>
               setIdentifier(
-                e.target.value
+                event.target.value
               )
             }
             placeholder="Username or email"
-            className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+            autoComplete="username"
+            className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
 
 
@@ -121,13 +186,14 @@ function Login() {
           <input
             type="password"
             value={password}
-            onChange={(e) =>
+            onChange={(event) =>
               setPassword(
-                e.target.value
+                event.target.value
               )
             }
             placeholder="Password"
-            className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+            autoComplete="current-password"
+            className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
 
 
@@ -137,12 +203,12 @@ function Login() {
 
           <select
             value={role}
-            onChange={(e) =>
+            onChange={(event) =>
               setRole(
-                e.target.value
+                event.target.value
               )
             }
-            className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+            className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           >
 
             <option value="student">
@@ -164,9 +230,9 @@ function Login() {
 
 
           <button
-            onClick={handleLogin}
+            type="submit"
             disabled={loading}
-            className="mt-6 w-full rounded-lg bg-blue-600 py-3 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 w-full rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
 
             {loading
@@ -175,7 +241,7 @@ function Login() {
 
           </button>
 
-        </div>
+        </form>
 
       </div>
 

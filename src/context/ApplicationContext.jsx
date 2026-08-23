@@ -5,11 +5,16 @@ import {
   useState,
 } from 'react'
 
+import {
+  createApplication,
+  getApplications,
+  updateApplication as updateApplicationApi,
+  getAccessToken,
+} from '../services/api'
+
+
 const ApplicationContext =
   createContext()
-
-const API_BASE_URL =
-  'http://127.0.0.1:8000'
 
 
 export function ApplicationProvider({
@@ -23,7 +28,7 @@ export function ApplicationProvider({
   const [
     loading,
     setLoading,
-  ] = useState(true)
+  ] = useState(false)
 
   const [
     error,
@@ -31,56 +36,43 @@ export function ApplicationProvider({
   ] = useState(null)
 
 
-  useEffect(() => {
-    async function loadApplications() {
+  const loadApplications =
+    async () => {
+      const token =
+        getAccessToken()
+
+      if (!token) {
+        setApplications([])
+        setLoading(false)
+        return
+      }
+
       try {
         setLoading(true)
         setError(null)
 
-        const response =
-          await fetch(
-            `${API_BASE_URL}/api/applications/`
-          )
-
-        if (!response.ok) {
-          throw new Error(
-            'Failed to load applications'
-          )
-        }
-
         const data =
-          await response.json()
+          await getApplications()
 
-        /*
-          Keep the complete application
-          object returned by the backend.
+        const normalized =
+          Array.isArray(data)
+            ? data.map(
+                (application) => ({
+                  ...application,
 
-          This includes:
+                  status:
+                    application.status ||
+                    'Applied',
 
-          id
-          student_id
-          drive_id
-          status
-          current_stage
-          applied_at
-        */
-        const normalizedApplications =
-          data.map(
-            (application) => ({
-              ...application,
-
-              status:
-                application.status ||
-                'Applied',
-
-              current_stage:
-                application.current_stage ||
-                'Applied',
-            })
-          )
+                  current_stage:
+                    application.current_stage ||
+                    'Applied',
+                })
+              )
+            : []
 
         setApplications(
-          normalizedApplications
+          normalized
         )
 
       } catch (error) {
@@ -91,7 +83,7 @@ export function ApplicationProvider({
 
         setError(
           error.message ||
-            'Failed to load applications'
+          'Failed to load applications'
         )
 
       } finally {
@@ -99,279 +91,177 @@ export function ApplicationProvider({
       }
     }
 
+
+  useEffect(() => {
     loadApplications()
   }, [])
 
 
-  const applyToDrive = async (
-    drive,
-    student
-  ) => {
-    if (!drive || !student) {
-      return false
-    }
+  const applyToDrive =
+    async (
+      drive,
+      student
+    ) => {
+      if (
+        !drive ||
+        !student
+      ) {
+        return false
+      }
 
-    if (!student.id) {
-      console.error(
-        'Student ID is missing'
-      )
-
-      alert(
-        'Student ID is missing. Please configure the student profile.'
-      )
-
-      return false
-    }
-
-    try {
-      const response =
-        await fetch(
-          `${API_BASE_URL}/api/applications/`,
-          {
-            method: 'POST',
-
-            headers: {
-              'Content-Type':
-                'application/json',
-            },
-
-            body: JSON.stringify({
-              student_id:
-                student.id,
-
-              drive_id:
-                drive.id,
-            }),
-          }
-        )
-
-      const data =
-        await response.json()
-
-      if (!response.ok) {
-        console.error(
-          'Application API error:',
-          data
-        )
-
+      if (!student.id) {
         alert(
-          data.detail ||
-            'Unable to submit application.'
+          'Student ID is missing. Please configure the student profile.'
         )
 
         return false
       }
 
-      /*
-        The backend now returns
-        current_stage.
-
-        For example:
-
-        {
-          status: "Applied",
-          current_stage:
-            "Resume Shortlisting"
-        }
-
-        or:
-
-        {
-          status: "Applied",
-          current_stage:
-            "Applied"
-        }
-      */
-      const normalizedApplication = {
-        ...data,
-
-        status:
-          data.status ||
-          'Applied',
-
-        current_stage:
-          data.current_stage ||
-          'Applied',
-      }
-
-      setApplications(
-        (previousApplications) => [
-          ...previousApplications,
-          normalizedApplication,
-        ]
-      )
-
-      return true
-
-    } catch (error) {
-      console.error(
-        'Failed to submit application:',
-        error
-      )
-
-      alert(
-        'Unable to connect to the placement server.'
-      )
-
-      return false
-    }
-  }
-
-
-  const getApplication = (
-    driveId,
-    studentId
-  ) => {
-    return applications.find(
-      (application) =>
-        String(
-          application.drive_id
-        ) === String(driveId) &&
-        String(
-          application.student_id
-        ) === String(studentId)
-    )
-  }
-
-
-  /*
-    Update both application status
-    and recruitment stage.
-
-    Example:
-
-    status:
-      Shortlisted
-
-    currentStage:
-      PPT
-  */
-  const updateApplication = async (
-    applicationId,
-    newStatus,
-    newCurrentStage
-  ) => {
-    try {
-      const params =
-        new URLSearchParams()
-
-      if (newStatus) {
-        params.set(
-          'status',
-          newStatus
-        )
-      }
-
-      if (newCurrentStage) {
-        params.set(
-          'current_stage',
-          newCurrentStage
-        )
-      }
-
-      const response =
-        await fetch(
-          `${API_BASE_URL}/api/applications/${applicationId}?${params.toString()}`,
-          {
-            method: 'PATCH',
-          }
-        )
-
-      const data =
-        await response.json()
-
-      if (!response.ok) {
-        console.error(
-          'Application update API error:',
-          data
-        )
-
-        alert(
-          data.detail ||
-            'Unable to update application.'
-        )
-
-        return false
-      }
-
-      const normalizedApplication = {
-        ...data,
-
-        status:
-          data.status ||
-          'Applied',
-
-        current_stage:
-          data.current_stage ||
-          'Applied',
-      }
-
-      setApplications(
-        (previousApplications) =>
-          previousApplications.map(
-            (application) =>
-              application.id ===
-              applicationId
-                ? normalizedApplication
-                : application
+      try {
+        const data =
+          await createApplication(
+            student.id,
+            drive.id
           )
-      )
 
-      return true
+        const normalized = {
+          ...data,
 
-    } catch (error) {
-      console.error(
-        'Failed to update application:',
-        error
-      )
+          status:
+            data.status ||
+            'Applied',
 
-      alert(
-        'Unable to connect to the placement server.'
-      )
+          current_stage:
+            data.current_stage ||
+            'Applied',
+        }
 
-      return false
+        setApplications(
+          (previous) => [
+            ...previous,
+            normalized,
+          ]
+        )
+
+        return true
+
+      } catch (error) {
+        console.error(
+          'Failed to submit application:',
+          error
+        )
+
+        alert(
+          error.message ||
+          'Unable to submit application.'
+        )
+
+        return false
+      }
     }
-  }
 
 
-  /*
-    Backward-compatible function.
+  const getApplication =
+    (
+      driveId,
+      studentId
+    ) => {
+      return applications.find(
+        (application) =>
+          String(
+            application.drive_id
+          ) ===
+            String(driveId) &&
+          String(
+            application.student_id
+          ) ===
+            String(studentId)
+      )
+    }
 
-    Existing components that only provide
-    a status can continue using this.
 
-    The stage will be preserved if the
-    existing application already has one.
-  */
+  const updateApplication =
+    async (
+      applicationId,
+      newStatus,
+      newCurrentStage
+    ) => {
+      try {
+        const data =
+          await updateApplicationApi(
+            applicationId,
+            newStatus,
+            newCurrentStage
+          )
+
+        const normalized = {
+          ...data,
+
+          status:
+            data.status ||
+            'Applied',
+
+          current_stage:
+            data.current_stage ||
+            'Applied',
+        }
+
+        setApplications(
+          (previous) =>
+            previous.map(
+              (application) =>
+                application.id ===
+                applicationId
+                  ? normalized
+                  : application
+            )
+        )
+
+        return true
+
+      } catch (error) {
+        console.error(
+          'Failed to update application:',
+          error
+        )
+
+        alert(
+          error.message ||
+          'Unable to update application.'
+        )
+
+        return false
+      }
+    }
+
+
   const updateApplicationStatus =
     async (
       applicationId,
       newStatus
     ) => {
-      const existingApplication =
+      const existing =
         applications.find(
           (application) =>
             application.id ===
             applicationId
         )
 
-      const currentStage =
-        existingApplication?.current_stage ||
-        'Applied'
-
       return updateApplication(
         applicationId,
         newStatus,
-        currentStage
+        existing?.current_stage ||
+          'Applied'
       )
     }
 
 
-  const clearApplications = () => {
-    console.warn(
-      'Applications are stored in the backend. Clear operation is not available.'
-    )
-  }
+  const clearApplications =
+    () => {
+      console.warn(
+        'Applications are stored in the backend. Clear operation is not available.'
+      )
+    }
 
 
   return (
@@ -392,6 +282,9 @@ export function ApplicationProvider({
         loading,
 
         error,
+
+        refreshApplications:
+          loadApplications,
       }}
     >
       {children}

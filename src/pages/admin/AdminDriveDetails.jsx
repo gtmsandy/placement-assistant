@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { withdrawDrive } from '../../services/api'
+import {
+  getDrive,
+  withdrawDrive
+} from '../../services/api'
 
 const API_BASE_URL =
   'http://127.0.0.1:8000'
@@ -21,51 +24,40 @@ function AdminDriveDetails() {
   const [withdrawing, setWithdrawing] =
     useState(false)
 
-  useEffect(() => {
-    const loadDrive = async () => {
-      try {
-        setLoading(true)
-        setError('')
+useEffect(() => {
+  const loadDrive = async () => {
+    try {
+      setLoading(true)
+      setError('')
 
-        const response =
-          await fetch(
-            `${API_BASE_URL}/api/drives/${id}`
-          )
+      const data =
+        await getDrive(id)
 
-        if (!response.ok) {
-          throw new Error(
-            'Placement drive not found.'
-          )
-        }
+      console.log(
+        'Admin drive details:',
+        data
+      )
 
-        const data =
-          await response.json()
+      setDrive(data)
 
-        console.log(
-          'Admin drive details:',
-          data
-        )
+    } catch (error) {
+      console.error(
+        'Failed to load drive:',
+        error
+      )
 
-        setDrive(data)
+      setError(
+        error.message ||
+          'Failed to load placement drive.'
+      )
 
-      } catch (error) {
-        console.error(
-          'Failed to load drive:',
-          error
-        )
-
-        setError(
-          error.message ||
-            'Failed to load placement drive.'
-        )
-
-      } finally {
-        setLoading(false)
-      }
+    } finally {
+      setLoading(false)
     }
+  }
 
-    loadDrive()
-  }, [id])
+  loadDrive()
+}, [id])
 
 
   const formatDate = (date) => {

@@ -1,83 +1,122 @@
 const API_BASE_URL =
-  'http://127.0.0.1:8000/api'
+  'http://127.0.0.1:8000'
 
 
-async function request(
-  endpoint,
-  options = {}
+export function getAuthToken() {
+  return localStorage.getItem(
+    'access_token'
+  )
+}
+
+
+export function getAuthHeaders(
+  additionalHeaders = {}
 ) {
-  try {
-    const token =
-      localStorage.getItem(
-        'access_token'
-      )
+  const token =
+    getAuthToken()
 
-    const response =
-      await fetch(
-        `${API_BASE_URL}${endpoint}`,
-        {
-          ...options,
+  return {
+    ...additionalHeaders,
 
-          headers: {
-            'Content-Type':
-              'application/json',
-
-            ...(token
-              ? {
-                  Authorization:
-                    `Bearer ${token}`,
-                }
-              : {}),
-
-            ...(options.headers || {}),
-          },
+    ...(token
+      ? {
+          Authorization:
+            `Bearer ${token}`,
         }
-      )
-
-    const text =
-      await response.text()
-
-    let data = null
-
-    try {
-      data = text
-        ? JSON.parse(text)
-        : null
-    } catch {
-      data = text
-    }
-
-    if (!response.ok) {
-      const detail =
-        data?.detail ||
-        data?.message ||
-        data ||
-        `API request failed with status ${response.status}`
-
-      throw new Error(
-        typeof detail === 'string'
-          ? detail
-          : JSON.stringify(detail)
-      )
-    }
-
-    return data
-
-  } catch (error) {
-
-    console.error(
-      `API request failed: ${endpoint}`,
-      error
-    )
-
-    throw error
+      : {}),
   }
 }
 
 
-/* =========================
-   AUTHENTICATION
-========================= */
+function notifyAuthChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new Event('auth-changed')
+    )
+  }
+}
+
+
+export function clearAuth() {
+  localStorage.removeItem(
+    'access_token'
+  )
+
+  localStorage.removeItem(
+    'user'
+  )
+
+  notifyAuthChanged()
+}
+
+
+export function logoutUser() {
+  clearAuth()
+}
+
+
+export function getStoredUser() {
+  const storedUser =
+    localStorage.getItem('user')
+
+  if (!storedUser) {
+    return null
+  }
+
+  try {
+    return JSON.parse(storedUser)
+  } catch {
+    return null
+  }
+}
+
+
+export function getAccessToken() {
+  return getAuthToken()
+}
+
+
+async function parseResponse(
+  response
+) {
+  const contentType =
+    response.headers.get(
+      'content-type'
+    )
+
+  let data = null
+
+  if (
+    contentType &&
+    contentType.includes(
+      'application/json'
+    )
+  ) {
+    data =
+      await response.json()
+  } else {
+    data =
+      await response.text()
+  }
+
+  if (!response.ok) {
+    const message =
+      typeof data === 'object' &&
+      data?.detail
+        ? data.detail
+        : typeof data === 'string' &&
+          data
+          ? data
+          : `Request failed with status ${response.status}`
+
+    throw new Error(
+      message
+    )
+  }
+
+  return data
+}
+
 
 export async function loginUser(
   identifier,
@@ -85,10 +124,15 @@ export async function loginUser(
   role
 ) {
   const response =
-    await request(
-      '/auth/login',
+    await fetch(
+      `${API_BASE_URL}/api/auth/login`,
       {
         method: 'POST',
+
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
 
         body: JSON.stringify({
           identifier,
@@ -98,69 +142,68 @@ export async function loginUser(
       }
     )
 
+  const data =
+    await parseResponse(
+      response
+    )
+
+  if (
+    !data ||
+    !data.access_token
+  ) {
+    throw new Error(
+      'Login succeeded but no access token was returned.'
+    )
+  }
+
   localStorage.setItem(
     'access_token',
-    response.access_token
+    data.access_token
   )
 
-  localStorage.setItem(
-    'user',
-    JSON.stringify(
-      response.user
+  if (data.user) {
+    localStorage.setItem(
+      'user',
+      JSON.stringify(
+        data.user
+      )
     )
-  )
-
-  return response
-}
-
-
-export function logoutUser() {
-
-  localStorage.removeItem(
-    'access_token'
-  )
-
-  localStorage.removeItem(
-    'user'
-  )
-}
-
-
-export function getStoredUser() {
-
-  const user =
-    localStorage.getItem(
-      'user'
-    )
-
-  if (!user) {
-    return null
   }
 
-  try {
-    return JSON.parse(user)
-  } catch {
-    return null
-  }
+  notifyAuthChanged()
+
+  return data
 }
 
 
-export function getAccessToken() {
+export async function getMe() {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/me`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    )
 
-  return localStorage.getItem(
-    'access_token'
+  return parseResponse(
+    response
   )
 }
 
-
-/* =========================
-   STUDENTS
-========================= */
 
 export async function getStudents() {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/students/`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    )
 
-  return request(
-    '/students/'
+  return parseResponse(
+    response
   )
 }
 
@@ -168,70 +211,53 @@ export async function getStudents() {
 export async function getStudent(
   studentId
 ) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/students/${studentId}`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    )
 
-  return request(
-    `/students/${studentId}`
-  )
-}
-
-
-export async function createStudent(
-  student
-) {
-
-  return request(
-    '/students/',
-    {
-      method: 'POST',
-
-      body: JSON.stringify(
-        student
-      ),
-    }
+  return parseResponse(
+    response
   )
 }
 
 
 export async function updateStudent(
   studentId,
-  student
+  studentData
 ) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/students/${studentId}`,
+      {
+        method: 'PATCH',
 
-  return request(
-    `/students/${studentId}`,
-    {
-      method: 'PATCH',
+        headers:
+          getAuthHeaders({
+            'Content-Type':
+              'application/json',
+          }),
 
-      body: JSON.stringify(
-        student
-      ),
-    }
+        body: JSON.stringify(
+          studentData
+        ),
+      }
+    )
+
+  return parseResponse(
+    response
   )
 }
 
-
-/* =========================
-   STUDENT RESUME
-========================= */
 
 export async function uploadResume(
   studentId,
   file
 ) {
-
-  if (!studentId) {
-    throw new Error(
-      'Student ID is missing'
-    )
-  }
-
-  if (!file) {
-    throw new Error(
-      'Please select a resume file'
-    )
-  }
-
-
   const formData =
     new FormData()
 
@@ -240,79 +266,37 @@ export async function uploadResume(
     file
   )
 
-
-  const token =
-    localStorage.getItem(
-      'access_token'
-    )
-
-
   const response =
     await fetch(
-      `${API_BASE_URL}/students/${studentId}/resume`,
+      `${API_BASE_URL}/api/students/${studentId}/resume`,
       {
         method: 'POST',
 
-        headers: {
-          ...(token
-            ? {
-                Authorization:
-                  `Bearer ${token}`,
-              }
-            : {}),
-        },
+        headers:
+          getAuthHeaders(),
 
         body: formData,
       }
     )
 
-
-  const text =
-    await response.text()
-
-
-  let data = null
-
-  try {
-
-    data = text
-      ? JSON.parse(text)
-      : null
-
-  } catch {
-
-    data = text
-  }
-
-
-  if (!response.ok) {
-
-    const detail =
-      data?.detail ||
-      data?.message ||
-      data ||
-      `Resume upload failed with status ${response.status}`
-
-    throw new Error(
-      typeof detail === 'string'
-        ? detail
-        : JSON.stringify(detail)
-    )
-  }
-
-
-  return data
+  return parseResponse(
+    response
+  )
 }
 
 
-/* =========================
-   PLACEMENT DRIVES
-========================= */
-
 export async function getDrives() {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/drives/`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    )
 
-  return request(
-    '/drives/'
+  return parseResponse(
+    response
   )
 }
 
@@ -320,9 +304,17 @@ export async function getDrives() {
 export async function getDrive(
   driveId
 ) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/drives/${driveId}`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    )
 
-  return request(
-    `/drives/${driveId}`
+  return parseResponse(
+    response
   )
 }
 
@@ -330,21 +322,26 @@ export async function getDrive(
 export async function createDrive(
   drive
 ) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/drives/`,
+      {
+        method: 'POST',
 
-  console.log(
-    'Creating placement drive:',
-    drive
-  )
+        headers:
+          getAuthHeaders({
+            'Content-Type':
+              'application/json',
+          }),
 
-  return request(
-    '/drives/',
-    {
-      method: 'POST',
+        body: JSON.stringify(
+          drive
+        ),
+      }
+    )
 
-      body: JSON.stringify(
-        drive
-      ),
-    }
+  return parseResponse(
+    response
   )
 }
 
@@ -353,22 +350,26 @@ export async function updateDrive(
   driveId,
   drive
 ) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/drives/${driveId}`,
+      {
+        method: 'PATCH',
 
-  console.log(
-    'Updating placement drive:',
-    driveId,
-    drive
-  )
+        headers:
+          getAuthHeaders({
+            'Content-Type':
+              'application/json',
+          }),
 
-  return request(
-    `/drives/${driveId}`,
-    {
-      method: 'PATCH',
+        body: JSON.stringify(
+          drive
+        ),
+      }
+    )
 
-      body: JSON.stringify(
-        drive
-      ),
-    }
+  return parseResponse(
+    response
   )
 }
 
@@ -376,16 +377,11 @@ export async function updateDrive(
 export async function withdrawDrive(
   driveId
 ) {
-
-  console.log(
-    'Withdrawing placement drive:',
-    driveId
-  )
-
   return updateDrive(
     driveId,
     {
-      status: 'Withdrawn',
+      status:
+        'Withdrawn',
     }
   )
 }
@@ -395,14 +391,6 @@ export async function uploadJobDescription(
   driveId,
   file
 ) {
-
-  if (!file) {
-    throw new Error(
-      'Please select a job description file'
-    )
-  }
-
-
   const formData =
     new FormData()
 
@@ -411,79 +399,37 @@ export async function uploadJobDescription(
     file
   )
 
-
-  const token =
-    localStorage.getItem(
-      'access_token'
-    )
-
-
   const response =
     await fetch(
-      `${API_BASE_URL}/drives/${driveId}/jd`,
+      `${API_BASE_URL}/api/drives/${driveId}/jd`,
       {
         method: 'POST',
 
-        headers: {
-          ...(token
-            ? {
-                Authorization:
-                  `Bearer ${token}`,
-              }
-            : {}),
-        },
+        headers:
+          getAuthHeaders(),
 
         body: formData,
       }
     )
 
-
-  const text =
-    await response.text()
-
-
-  let data = null
-
-  try {
-
-    data = text
-      ? JSON.parse(text)
-      : null
-
-  } catch {
-
-    data = text
-  }
-
-
-  if (!response.ok) {
-
-    const detail =
-      data?.detail ||
-      data?.message ||
-      data ||
-      `JD upload failed with status ${response.status}`
-
-    throw new Error(
-      typeof detail === 'string'
-        ? detail
-        : JSON.stringify(detail)
-    )
-  }
-
-
-  return data
+  return parseResponse(
+    response
+  )
 }
 
 
-/* =========================
-   APPLICATIONS
-========================= */
-
 export async function getApplications() {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/applications/`,
+      {
+        headers:
+          getAuthHeaders(),
+      }
+    )
 
-  return request(
-    '/applications/'
+  return parseResponse(
+    response
   )
 }
 
@@ -492,34 +438,82 @@ export async function createApplication(
   studentId,
   driveId
 ) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/applications/`,
+      {
+        method: 'POST',
 
-  return request(
-    '/applications/',
-    {
-      method: 'POST',
+        headers:
+          getAuthHeaders({
+            'Content-Type':
+              'application/json',
+          }),
 
-      body: JSON.stringify({
-        student_id:
-          studentId,
+        body: JSON.stringify({
+          student_id:
+            studentId,
 
-        drive_id:
-          driveId,
-      }),
-    }
+          drive_id:
+            driveId,
+        }),
+      }
+    )
+
+  return parseResponse(
+    response
   )
 }
 
 
-export async function updateApplicationStatus(
+export async function updateApplication(
   applicationId,
   status,
-  currentStage = 'Applied'
+  currentStage
 ) {
+  const params =
+    new URLSearchParams()
 
-  return request(
-    `/applications/${applicationId}?status=${encodeURIComponent(status)}&current_stage=${encodeURIComponent(currentStage)}`,
-    {
-      method: 'PATCH',
-    }
+  if (status) {
+    params.set(
+      'status',
+      status
+    )
+  }
+
+  if (currentStage) {
+    params.set(
+      'current_stage',
+      currentStage
+    )
+  }
+
+  const query =
+    params.toString()
+
+  const url =
+    `${API_BASE_URL}/api/applications/${applicationId}` +
+    (query
+      ? `?${query}`
+      : '')
+
+  const response =
+    await fetch(
+      url,
+      {
+        method: 'PATCH',
+
+        headers:
+          getAuthHeaders(),
+      }
+    )
+
+  return parseResponse(
+    response
   )
+}
+
+
+export {
+  API_BASE_URL,
 }

@@ -45,7 +45,9 @@ def get_drives(
 ):
     return (
         db.query(PlacementDrive)
-        .order_by(PlacementDrive.id.desc())
+        .order_by(
+            PlacementDrive.id.desc()
+        )
         .all()
     )
 
@@ -91,7 +93,9 @@ def create_drive(
         )
 
         db.add(drive)
+
         db.commit()
+
         db.refresh(drive)
 
         return drive
@@ -145,6 +149,7 @@ def update_drive(
             )
 
         db.commit()
+
         db.refresh(drive)
 
         return drive
@@ -212,6 +217,16 @@ async def upload_job_description(
         unique_name
     )
 
+    old_jd_path = None
+
+    if drive.jd:
+        old_jd_path = drive.jd.lstrip(
+            "/"
+        ).replace(
+            "/",
+            os.sep
+        )
+
     try:
         with open(
             file_path,
@@ -219,6 +234,7 @@ async def upload_job_description(
         ) as buffer:
 
             while True:
+
                 chunk = await file.read(
                     1024 * 1024
                 )
@@ -237,15 +253,34 @@ async def upload_job_description(
         )
 
         db.commit()
+
         db.refresh(drive)
+
+        if (
+            old_jd_path
+            and os.path.exists(old_jd_path)
+            and old_jd_path != file_path
+        ):
+            try:
+                os.remove(
+                    old_jd_path
+                )
+            except OSError:
+                pass
 
         return drive
 
     except Exception as error:
+
         db.rollback()
 
         if os.path.exists(file_path):
-            os.remove(file_path)
+            try:
+                os.remove(
+                    file_path
+                )
+            except OSError:
+                pass
 
         raise HTTPException(
             status_code=500,

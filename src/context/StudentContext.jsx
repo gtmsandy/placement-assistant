@@ -47,10 +47,6 @@ const initialStudent = {
 }
 
 
-/* =========================
-   API → FRONTEND
-========================= */
-
 function mapStudentFromApi(
   student
 ) {
@@ -112,16 +108,6 @@ function mapStudentFromApi(
       student.history_of_backlogs ||
       false,
 
-    /*
-      IMPORTANT
-
-      Do NOT set these to null.
-
-      The backend returns:
-      resume_filename
-      resume_url
-    */
-
     resumeFilename:
       student.resume_filename ||
       null,
@@ -132,10 +118,6 @@ function mapStudentFromApi(
   }
 }
 
-
-/* =========================
-   FRONTEND → API
-========================= */
 
 function mapStudentToApi(
   student
@@ -202,10 +184,6 @@ function mapStudentToApi(
 }
 
 
-/* =========================
-   PROVIDER
-========================= */
-
 export function StudentProvider({
   children,
 }) {
@@ -221,7 +199,7 @@ export function StudentProvider({
   const [
     loading,
     setLoading,
-  ] = useState(true)
+  ] = useState(false)
 
 
   const [
@@ -230,18 +208,35 @@ export function StudentProvider({
   ] = useState(null)
 
 
-  /* =========================
-     LOAD STUDENT
-  ========================= */
-
-  useEffect(() => {
-
-    async function loadStudent() {
+  const loadStudent =
+    async () => {
 
       try {
 
         setLoading(true)
         setError(null)
+
+
+        const token =
+          localStorage.getItem(
+            'access_token'
+          )
+
+
+        /*
+          Do not attempt to load a student
+          before authentication.
+        */
+
+        if (!token) {
+
+          setStudent(
+            initialStudent
+          )
+
+          return null
+
+        }
 
 
         const user =
@@ -250,17 +245,42 @@ export function StudentProvider({
 
         if (!user) {
 
-          throw new Error(
-            'User is not logged in'
+          setStudent(
+            initialStudent
           )
+
+          return null
+
         }
 
 
-        if (!user.student_id) {
+        if (
+          !user.student_id &&
+          user.role !== 'admin'
+        ) {
 
           throw new Error(
             'Student ID is missing from the logged-in user'
           )
+
+        }
+
+
+        /*
+          Admin users do not have a student
+          profile to load.
+        */
+
+        if (
+          user.role === 'admin'
+        ) {
+
+          setStudent(
+            initialStudent
+          )
+
+          return null
+
         }
 
 
@@ -280,6 +300,9 @@ export function StudentProvider({
           mappedStudent
         )
 
+
+        return mappedStudent
+
       } catch (error) {
 
         console.error(
@@ -290,7 +313,7 @@ export function StudentProvider({
 
         setError(
           error.message ||
-            'Failed to load student'
+          'Failed to load student'
         )
 
 
@@ -298,21 +321,55 @@ export function StudentProvider({
           initialStudent
         )
 
+
+        return null
+
       } finally {
 
         setLoading(false)
+
       }
     }
 
 
+  useEffect(() => {
+
+    /*
+      Initial load.
+    */
+
     loadStudent()
+
+
+    /*
+      React to login/logout.
+    */
+
+    const handleAuthChanged =
+      () => {
+
+        loadStudent()
+
+      }
+
+
+    window.addEventListener(
+      'auth-changed',
+      handleAuthChanged
+    )
+
+
+    return () => {
+
+      window.removeEventListener(
+        'auth-changed',
+        handleAuthChanged
+      )
+
+    }
 
   }, [])
 
-
-  /* =========================
-     UPDATE PROFILE
-  ========================= */
 
   const updateStudent =
     async (
@@ -326,6 +383,7 @@ export function StudentProvider({
           throw new Error(
             'Student ID is missing'
           )
+
         }
 
 
@@ -374,24 +432,21 @@ export function StudentProvider({
 
         setError(
           error.message ||
-            'Failed to update student'
+          'Failed to update student'
         )
 
 
         alert(
           error.message ||
-            'Failed to update student profile.'
+          'Failed to update student profile.'
         )
 
 
         return null
+
       }
     }
 
-
-  /* =========================
-     UPLOAD RESUME
-  ========================= */
 
   const uploadResume =
     async (
@@ -405,6 +460,7 @@ export function StudentProvider({
           throw new Error(
             'Student ID is missing'
           )
+
         }
 
 
@@ -413,6 +469,7 @@ export function StudentProvider({
           throw new Error(
             'Please select a resume file'
           )
+
         }
 
 
@@ -422,16 +479,6 @@ export function StudentProvider({
             file
           )
 
-
-        /*
-          Backend returns the complete
-          updated StudentResponse.
-
-          Map it and update React state.
-
-          THIS is what keeps the resume
-          visible after saving.
-        */
 
         const mappedStudent =
           mapStudentFromApi(
@@ -459,17 +506,18 @@ export function StudentProvider({
 
         setError(
           error.message ||
-            'Failed to upload resume'
+          'Failed to upload resume'
         )
 
 
         alert(
           error.message ||
-            'Failed to upload resume.'
+          'Failed to upload resume.'
         )
 
 
         return null
+
       }
     }
 
@@ -493,10 +541,6 @@ export function StudentProvider({
   )
 }
 
-
-/* =========================
-   HOOK
-========================= */
 
 export function useStudent() {
 

@@ -8,6 +8,7 @@ import {
 import {
   getDrives,
   createDrive,
+  getAuthToken,
 } from '../services/api'
 
 
@@ -272,16 +273,43 @@ export function PlacementProvider({
     PlacementProvider starts.
   */
   useEffect(() => {
-    fetchAndSetDrives(
-      setDrives,
-      setLoading,
-      setError
-    ).catch(() => {
-      /*
-        The error has already been
-        stored in PlacementContext.
-      */
-    })
+    const loadDrives = () => {
+      if (!getAuthToken()) {
+        setDrives([])
+        setError(null)
+        setLoading(false)
+        return
+      }
+
+      fetchAndSetDrives(
+        setDrives,
+        setLoading,
+        setError
+      ).catch(() => {
+        /*
+          The error has already been
+          stored in PlacementContext.
+        */
+      })
+    }
+
+    loadDrives()
+
+    const handleAuthChanged = () => {
+      loadDrives()
+    }
+
+    window.addEventListener(
+      'auth-changed',
+      handleAuthChanged
+    )
+
+    return () => {
+      window.removeEventListener(
+        'auth-changed',
+        handleAuthChanged
+      )
+    }
   }, [])
 
 

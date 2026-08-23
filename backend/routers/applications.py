@@ -7,8 +7,12 @@ from database import get_db
 from models import Application
 from models import PlacementDrive
 from models import Student
+from models import User
 from schemas import ApplicationCreate
 from schemas import ApplicationResponse
+from routers.auth import get_current_user
+from routers.auth import require_admin
+from routers.auth import require_student
 
 
 router = APIRouter(
@@ -85,12 +89,40 @@ def check_eligibility(
     response_model=list[ApplicationResponse],
 )
 def get_applications(
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db),
 ):
-    return (
-        db.query(Application)
-        .order_by(Application.id.desc())
-        .all()
+    user_role = current_user.role.lower()
+
+    if user_role == "admin":
+        return (
+            db.query(Application)
+            .order_by(Application.id.desc())
+            .all()
+        )
+
+    if user_role == "student":
+        if current_user.student_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Student account is not linked to a student profile",
+            )
+
+        return (
+            db.query(Application)
+            .filter(
+                Application.student_id
+                == current_user.student_id
+            )
+            .order_by(Application.id.desc())
+            .all()
+        )
+
+    raise HTTPException(
+        status_code=403,
+        detail="You are not authorized to view applications",
     )
 
 
@@ -100,12 +132,21 @@ def get_applications(
 )
 def create_application(
     application_data: ApplicationCreate,
+    current_user: User = Depends(
+        require_student
+    ),
     db: Session = Depends(get_db),
 ):
+    if current_user.student_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Student account is not linked to a student profile",
+        )
+
     student = (
         db.query(Student)
         .filter(
-            Student.id == application_data.student_id
+            Student.id == current_user.student_id
         )
         .first()
     )
@@ -113,7 +154,7 @@ def create_application(
     if not student:
         raise HTTPException(
             status_code=404,
-            detail="Student not found",
+            detail="Student profile not found",
         )
 
     drive = (
@@ -140,7 +181,7 @@ def create_application(
         db.query(Application)
         .filter(
             Application.student_id
-            == application_data.student_id,
+            == current_user.student_id,
             Application.drive_id
             == application_data.drive_id,
         )
@@ -170,7 +211,7 @@ def create_application(
         initial_stage = "Resume Shortlisting"
 
     application = Application(
-        student_id=application_data.student_id,
+        student_id=current_user.student_id,
         drive_id=application_data.drive_id,
         status="Applied",
         current_stage=initial_stage,
@@ -191,6 +232,9 @@ def update_application_status(
     application_id: int,
     status: str,
     current_stage: str = "Applied",
+    current_user: User = Depends(
+        require_admin
+    ),
     db: Session = Depends(get_db),
 ):
     application = (
