@@ -12,7 +12,6 @@ from schemas import ApplicationCreate
 from schemas import ApplicationResponse
 from routers.auth import get_current_user
 from routers.auth import require_admin
-from routers.auth import require_student
 
 
 router = APIRouter(
@@ -107,7 +106,10 @@ def get_applications(
         if current_user.student_id is None:
             raise HTTPException(
                 status_code=400,
-                detail="Student account is not linked to a student profile",
+                detail=(
+                    "Student account is not linked "
+                    "to a student profile"
+                ),
             )
 
         return (
@@ -133,20 +135,49 @@ def get_applications(
 def create_application(
     application_data: ApplicationCreate,
     current_user: User = Depends(
-        require_student
+        get_current_user
     ),
     db: Session = Depends(get_db),
 ):
-    if current_user.student_id is None:
+    user_role = current_user.role.lower()
+
+    if user_role not in ["admin", "student"]:
         raise HTTPException(
-            status_code=400,
-            detail="Student account is not linked to a student profile",
+            status_code=403,
+            detail="You are not authorized to create applications",
         )
+
+    if user_role == "student":
+        if current_user.student_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Student account is not linked "
+                    "to a student profile"
+                ),
+            )
+
+        if (
+            application_data.student_id
+            != current_user.student_id
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Students can only create "
+                    "applications for themselves"
+                ),
+            )
+
+        student_id = current_user.student_id
+
+    else:
+        student_id = application_data.student_id
 
     student = (
         db.query(Student)
         .filter(
-            Student.id == current_user.student_id
+            Student.id == student_id
         )
         .first()
     )
@@ -160,7 +191,8 @@ def create_application(
     drive = (
         db.query(PlacementDrive)
         .filter(
-            PlacementDrive.id == application_data.drive_id
+            PlacementDrive.id
+            == application_data.drive_id
         )
         .first()
     )
@@ -174,14 +206,16 @@ def create_application(
     if drive.status != "Published":
         raise HTTPException(
             status_code=400,
-            detail="This placement drive is not published",
+            detail=(
+                "This placement drive is not published"
+            ),
         )
 
     already_applied = (
         db.query(Application)
         .filter(
             Application.student_id
-            == current_user.student_id,
+            == student_id,
             Application.drive_id
             == application_data.drive_id,
         )
@@ -191,7 +225,10 @@ def create_application(
     if already_applied:
         raise HTTPException(
             status_code=400,
-            detail="You have already applied to this drive",
+            detail=(
+                "This student has already "
+                "applied to this drive"
+            ),
         )
 
     eligible, reason = check_eligibility(
@@ -211,17 +248,29 @@ def create_application(
         initial_stage = "Resume Shortlisting"
 
     application = Application(
-        student_id=current_user.student_id,
+        student_id=student_id,
         drive_id=application_data.drive_id,
         status="Applied",
         current_stage=initial_stage,
     )
 
-    db.add(application)
-    db.commit()
-    db.refresh(application)
+    try:
+        db.add(application)
+        db.commit()
+        db.refresh(application)
 
-    return application
+        return application
+
+    except Exception as error:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Failed to create application: "
+                f"{str(error)}"
+            ),
+        )
 
 
 @router.patch(
