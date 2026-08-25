@@ -1,177 +1,575 @@
-import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import {
+  useEffect,
+  useState,
+} from 'react'
+
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom'
+
 import {
   getDrive,
-  withdrawDrive
+  withdrawDrive,
+  uploadRoundResults,
 } from '../../services/api'
+
 
 const API_BASE_URL =
   'http://127.0.0.1:8000'
 
+
 function AdminDriveDetails() {
-  const navigate = useNavigate()
-  const { id } = useParams()
 
-  const [drive, setDrive] =
-    useState(null)
+  const navigate =
+    useNavigate()
 
-  const [loading, setLoading] =
-    useState(true)
-
-  const [error, setError] =
-    useState('')
-
-  const [withdrawing, setWithdrawing] =
-    useState(false)
-
-useEffect(() => {
-  const loadDrive = async () => {
-    try {
-      setLoading(true)
-      setError('')
-
-      const data =
-        await getDrive(id)
-
-      console.log(
-        'Admin drive details:',
-        data
-      )
-
-      setDrive(data)
-
-    } catch (error) {
-      console.error(
-        'Failed to load drive:',
-        error
-      )
-
-      setError(
-        error.message ||
-          'Failed to load placement drive.'
-      )
-
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  loadDrive()
-}, [id])
+  const { id } =
+    useParams()
 
 
-  const formatDate = (date) => {
-    if (!date) {
-      return 'Not specified'
-    }
+  const [
+    drive,
+    setDrive,
+  ] = useState(null)
 
-    const parsedDate =
-      new Date(date)
 
-    if (
-      Number.isNaN(
-        parsedDate.getTime()
-      )
-    ) {
-      return date
-    }
+  const [
+    loading,
+    setLoading,
+  ] = useState(true)
 
-    return parsedDate.toLocaleString(
-      'en-IN',
-      {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
+
+  const [
+    error,
+    setError,
+  ] = useState('')
+
+
+  const [
+    withdrawing,
+    setWithdrawing,
+  ] = useState(false)
+
+
+  const [
+    roundName,
+    setRoundName,
+  ] = useState('PPT')
+
+
+  const [
+    roundFile,
+    setRoundFile,
+  ] = useState(null)
+
+
+  const [
+    uploadingResults,
+    setUploadingResults,
+  ] = useState(false)
+
+
+  const [
+    uploadSuccess,
+    setUploadSuccess,
+  ] = useState('')
+
+
+  const getNextRound =
+    (currentRound) => {
+
+      const rounds =
+        drive?.resume_shortlisting
+          ? [
+              'Resume Shortlisting',
+              'PPT',
+              'Online Test',
+              'Interview',
+              'Result',
+            ]
+          : [
+              'PPT',
+              'Online Test',
+              'Interview',
+              'Result',
+            ]
+
+
+      const currentIndex =
+        rounds.indexOf(currentRound)
+
+
+      if (
+        currentIndex === -1
+      ) {
+        return rounds[0]
       }
-    )
-  }
 
 
-  const getJdUrl = () => {
-    if (!drive?.jd) {
-      return ''
+      if (
+        currentIndex >=
+        rounds.length - 1
+      ) {
+        return 'Result'
+      }
+
+
+      return rounds[
+        currentIndex + 1
+      ]
     }
 
-    if (
-      drive.jd.startsWith('http://') ||
-      drive.jd.startsWith('https://')
-    ) {
-      return drive.jd
+
+  const getInitialRound =
+    (data) => {
+
+      if (
+        data?.resume_shortlisting
+      ) {
+        return 'Resume Shortlisting'
+      }
+
+      return 'PPT'
     }
 
-    return `${API_BASE_URL}${drive.jd}`
-  }
+
+  const loadDrive =
+    async (
+      showLoading = true
+    ) => {
+
+      try {
+
+        if (showLoading) {
+          setLoading(true)
+        }
+
+        setError('')
 
 
-  const handleViewJd = () => {
-    const jdUrl =
-      getJdUrl()
-
-    if (!jdUrl) {
-      return
-    }
-
-    window.open(
-      jdUrl,
-      '_blank',
-      'noopener,noreferrer'
-    )
-  }
+        const data =
+          await getDrive(id)
 
 
-  const handleWithdraw = async () => {
-    if (!drive) {
-      return
-    }
-
-    const confirmed =
-      window.confirm(
-        `Withdraw ${drive.company_name} - ${drive.role}?\n\n` +
-        `The drive will no longer be available to students.\n\n` +
-        `Existing applications will be preserved.`
-      )
-
-    if (!confirmed) {
-      return
-    }
-
-    try {
-      setWithdrawing(true)
-      setError('')
-
-      const updatedDrive =
-        await withdrawDrive(
-          drive.id
+        console.log(
+          'Admin drive details:',
+          data
         )
 
-      setDrive(
-        updatedDrive
-      )
 
-      alert(
-        'Placement drive withdrawn successfully.'
-      )
+        setDrive(
+          data
+        )
 
-    } catch (error) {
-      console.error(
-        'Failed to withdraw drive:',
-        error
-      )
 
-      setError(
-        error.message ||
-          'Failed to withdraw placement drive.'
-      )
+        return data
 
-    } finally {
-      setWithdrawing(false)
+      } catch (error) {
+
+        console.error(
+          'Failed to load drive:',
+          error
+        )
+
+
+        setError(
+          error.message ||
+          'Failed to load placement drive.'
+        )
+
+
+        throw error
+
+      } finally {
+
+        if (showLoading) {
+          setLoading(false)
+        }
+
+      }
     }
-  }
+
+
+  useEffect(() => {
+
+    const initializeDrive =
+      async () => {
+
+        try {
+
+          const data =
+            await loadDrive()
+
+
+          setRoundName(
+            getInitialRound(data)
+          )
+
+        } catch {
+          // Error is already handled
+        }
+
+      }
+
+
+    initializeDrive()
+
+  }, [id])
+
+
+  const formatDate =
+    (date) => {
+
+      if (!date) {
+        return 'Not specified'
+      }
+
+
+      const parsedDate =
+        new Date(date)
+
+
+      if (
+        Number.isNaN(
+          parsedDate.getTime()
+        )
+      ) {
+        return date
+      }
+
+
+      return parsedDate.toLocaleString(
+        'en-IN',
+        {
+          day:
+            'numeric',
+
+          month:
+            'short',
+
+          year:
+            'numeric',
+
+          hour:
+            'numeric',
+
+          minute:
+            '2-digit',
+        }
+      )
+    }
+
+
+  const getJdUrl =
+    () => {
+
+      if (!drive?.jd) {
+        return ''
+      }
+
+
+      if (
+        drive.jd.startsWith(
+          'http://'
+        ) ||
+        drive.jd.startsWith(
+          'https://'
+        )
+      ) {
+        return drive.jd
+      }
+
+
+      return (
+        `${API_BASE_URL}${drive.jd}`
+      )
+    }
+
+
+  const handleViewJd =
+    () => {
+
+      const jdUrl =
+        getJdUrl()
+
+
+      if (!jdUrl) {
+        return
+      }
+
+
+      window.open(
+        jdUrl,
+        '_blank',
+        'noopener,noreferrer'
+      )
+    }
+
+
+  const handleRoundFileChange =
+    (event) => {
+
+      setUploadSuccess('')
+      setError('')
+
+
+      const file =
+        event.target.files?.[0]
+
+
+      if (!file) {
+
+        setRoundFile(
+          null
+        )
+
+        return
+      }
+
+
+      const fileName =
+        file.name.toLowerCase()
+
+
+      const validFile =
+        fileName.endsWith(
+          '.xlsx'
+        ) ||
+        fileName.endsWith(
+          '.xlsm'
+        )
+
+
+      if (!validFile) {
+
+        setRoundFile(
+          null
+        )
+
+        event.target.value =
+          ''
+
+
+        setError(
+          'Please select an Excel file (.xlsx or .xlsm).'
+        )
+
+        return
+      }
+
+
+      setRoundFile(
+        file
+      )
+    }
+
+
+  const handleUploadResults =
+    async () => {
+
+      if (!drive) {
+        return
+      }
+
+
+      if (!roundFile) {
+
+        setError(
+          'Please select an Excel file first.'
+        )
+
+        return
+      }
+
+
+      if (!roundName) {
+
+        setError(
+          'Please select a recruitment round.'
+        )
+
+        return
+      }
+
+
+      try {
+
+        setUploadingResults(
+          true
+        )
+
+        setError('')
+        setUploadSuccess('')
+
+
+        const uploadedRound =
+          roundName
+
+
+        const result =
+          await uploadRoundResults(
+            drive.id,
+            uploadedRound,
+            roundFile
+          )
+
+
+        console.log(
+          'Round results upload response:',
+          result
+        )
+
+
+        /*
+         * Reload the drive after the backend
+         * has processed the Excel file.
+         *
+         * This ensures the frontend gets the
+         * latest recruitment/application state.
+         */
+
+        const updatedDrive =
+          await loadDrive(false)
+
+
+        setDrive(
+          updatedDrive
+        )
+
+
+        /*
+         * Move the recruitment dropdown to
+         * the next round automatically.
+         */
+
+        const nextRound =
+          getNextRound(
+            uploadedRound
+          )
+
+
+        setRoundName(
+          nextRound
+        )
+
+
+        setUploadSuccess(
+          result?.message ||
+          `${uploadedRound} results processed successfully. The next recruitment round is ${nextRound}.`
+        )
+
+
+        setRoundFile(
+          null
+        )
+
+
+        const fileInput =
+          document.getElementById(
+            'round-results-file'
+          )
+
+
+        if (fileInput) {
+          fileInput.value =
+            ''
+        }
+
+
+      } catch (error) {
+
+        console.error(
+          'Failed to upload round results:',
+          error
+        )
+
+
+        setError(
+          error.message ||
+          'Failed to upload round results.'
+        )
+
+      } finally {
+
+        setUploadingResults(
+          false
+        )
+
+      }
+    }
+
+
+  const handleWithdraw =
+    async () => {
+
+      if (!drive) {
+        return
+      }
+
+
+      const confirmed =
+        window.confirm(
+          `Withdraw ${drive.company_name} - ${drive.role}?\n\n` +
+          `The drive will no longer be available to students.\n\n` +
+          `Existing applications will be preserved.`
+        )
+
+
+      if (!confirmed) {
+        return
+      }
+
+
+      try {
+
+        setWithdrawing(
+          true
+        )
+
+        setError('')
+
+
+        const updatedDrive =
+          await withdrawDrive(
+            drive.id
+          )
+
+
+        setDrive(
+          updatedDrive
+        )
+
+
+        alert(
+          'Placement drive withdrawn successfully.'
+        )
+
+      } catch (error) {
+
+        console.error(
+          'Failed to withdraw drive:',
+          error
+        )
+
+
+        setError(
+          error.message ||
+          'Failed to withdraw placement drive.'
+        )
+
+      } finally {
+
+        setWithdrawing(
+          false
+        )
+
+      }
+    }
 
 
   if (loading) {
+
     return (
       <div className="min-h-screen bg-slate-50 p-6">
 
@@ -188,7 +586,11 @@ useEffect(() => {
   }
 
 
-  if (error && !drive) {
+  if (
+    error &&
+    !drive
+  ) {
+
     return (
       <div className="min-h-screen bg-slate-50 p-6">
 
@@ -198,10 +600,12 @@ useEffect(() => {
             Placement drive not found
           </h1>
 
+
           <p className="mt-2 text-sm text-red-600">
             {error ||
               'This placement drive may no longer be available.'}
           </p>
+
 
           <button
             onClick={() =>
@@ -227,9 +631,9 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
 
-      <header className="border-b border-slate-200 bg-white px-6 py-5">
+      <header className="border-b border-slate-200 bg-white px-5 py-5">
 
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-4xl">
 
           <button
             onClick={() =>
@@ -241,34 +645,23 @@ useEffect(() => {
           </button>
 
 
-          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 
             <div>
 
-              <p className="text-sm font-medium text-blue-600">
-                Placement Drive
-              </p>
-
-              <h1 className="mt-1 text-3xl font-bold text-slate-900">
+              <h1 className="text-3xl font-bold text-slate-900">
                 {drive.company_name}
               </h1>
 
-              <p className="mt-1 text-slate-500">
+
+              <p className="mt-1 text-lg text-slate-600">
                 {drive.role}
               </p>
 
             </div>
 
 
-            <span
-              className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
-                drive.status === 'Published'
-                  ? 'bg-green-100 text-green-700'
-                  : drive.status === 'Withdrawn'
-                    ? 'bg-red-100 text-red-700'
-                    : 'bg-yellow-100 text-yellow-700'
-              }`}
-            >
+            <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
               {drive.status}
             </span>
 
@@ -279,24 +672,41 @@ useEffect(() => {
       </header>
 
 
-      <main className="mx-auto max-w-5xl space-y-6 px-5 py-8">
+      <main className="mx-auto max-w-4xl space-y-6 px-5 py-8">
 
         {error && (
+
           <div className="rounded-xl border border-red-200 bg-red-50 p-4">
 
             <p className="font-semibold text-red-700">
               Action failed
             </p>
 
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 whitespace-pre-wrap text-sm text-red-600">
               {error}
             </p>
 
           </div>
+
         )}
 
 
-        {/* Company Details */}
+        {uploadSuccess && (
+
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+
+            <p className="font-semibold text-green-700">
+              Upload successful
+            </p>
+
+            <p className="mt-1 text-sm text-green-600">
+              {uploadSuccess}
+            </p>
+
+          </div>
+
+        )}
+
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -304,67 +714,56 @@ useEffect(() => {
             Company Details
           </h2>
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
 
-            <div className="rounded-xl bg-slate-50 p-4">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
 
-              <p className="text-xs text-slate-500">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Company
               </p>
 
               <p className="mt-1 font-semibold text-slate-900">
                 {drive.company_name}
               </p>
-
             </div>
 
 
-            <div className="rounded-xl bg-slate-50 p-4">
-
-              <p className="text-xs text-slate-500">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Role
               </p>
 
               <p className="mt-1 font-semibold text-slate-900">
                 {drive.role}
               </p>
-
             </div>
 
 
-            <div className="rounded-xl bg-slate-50 p-4">
-
-              <p className="text-xs text-slate-500">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 CTC
               </p>
 
               <p className="mt-1 font-semibold text-slate-900">
-                {drive.ctc ||
-                  'Not specified'}
+                {drive.ctc || 'Not specified'}
               </p>
-
             </div>
 
 
-            <div className="rounded-xl bg-slate-50 p-4">
-
-              <p className="text-xs text-slate-500">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Location
               </p>
 
               <p className="mt-1 font-semibold text-slate-900">
-                {drive.location ||
-                  'Not specified'}
+                {drive.location || 'Not specified'}
               </p>
-
             </div>
 
           </div>
 
         </section>
 
-
-        {/* Eligibility */}
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -372,107 +771,89 @@ useEffect(() => {
             Eligibility Criteria
           </h2>
 
-          <div className="mt-5 space-y-4">
 
-            <div className="flex justify-between gap-4">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2">
 
-              <span className="text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Minimum CGPA
-              </span>
+              </p>
 
-              <span className="font-semibold text-slate-900">
+              <p className="mt-1 font-semibold text-slate-900">
                 {drive.min_cgpa}
-              </span>
-
+              </p>
             </div>
 
 
-            <div className="flex justify-between gap-4">
-
-              <span className="text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Minimum 10th Percentage
-              </span>
+              </p>
 
-              <span className="font-semibold text-slate-900">
+              <p className="mt-1 font-semibold text-slate-900">
                 {drive.min_tenth}%
-              </span>
-
+              </p>
             </div>
 
 
-            <div className="flex justify-between gap-4">
-
-              <span className="text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Minimum 12th Percentage
-              </span>
+              </p>
 
-              <span className="font-semibold text-slate-900">
+              <p className="mt-1 font-semibold text-slate-900">
                 {drive.min_twelfth}%
-              </span>
-
+              </p>
             </div>
 
 
-            <div className="flex justify-between gap-4">
-
-              <span className="text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Maximum Active Backlogs
-              </span>
+              </p>
 
-              <span className="font-semibold text-slate-900">
+              <p className="mt-1 font-semibold text-slate-900">
                 {drive.max_backlogs}
-              </span>
-
+              </p>
             </div>
 
 
-            <div className="flex justify-between gap-4">
-
-              <span className="text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Eligible Branches
-              </span>
+              </p>
 
-              <span className="max-w-[60%] text-right font-semibold text-slate-900">
-                {drive.branches ||
-                  'Not specified'}
-              </span>
-
+              <p className="mt-1 font-semibold text-slate-900">
+                {drive.branches || 'Any'}
+              </p>
             </div>
 
 
-            <div className="flex justify-between gap-4">
-
-              <span className="text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Gender
-              </span>
+              </p>
 
-              <span className="font-semibold text-slate-900">
-                {drive.gender ||
-                  'Any'}
-              </span>
-
+              <p className="mt-1 font-semibold text-slate-900">
+                {drive.gender || 'Any'}
+              </p>
             </div>
 
 
-            <div className="flex justify-between gap-4">
-
-              <span className="text-sm text-slate-600">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Graduation Year
-              </span>
+              </p>
 
-              <span className="font-semibold text-slate-900">
-                {drive.graduation_year ||
-                  'Any'}
-              </span>
-
+              <p className="mt-1 font-semibold text-slate-900">
+                {drive.graduation_year || 'Any'}
+              </p>
             </div>
 
           </div>
 
         </section>
 
-
-        {/* Recruitment Schedule */}
 
         <section className="rounded-2xl bg-white p-6 shadow-sm">
 
@@ -481,55 +862,26 @@ useEffect(() => {
           </h2>
 
 
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="mt-5 space-y-4">
 
-            <div className="rounded-xl bg-slate-50 p-4 sm:col-span-2">
+            <div>
 
-              <div className="flex items-center justify-between gap-4">
+              <p className="text-sm font-medium text-slate-600">
+                Resume Shortlisting
+              </p>
 
-                <div>
-
-                  <p className="text-xs text-slate-500">
-                    Resume Shortlisting
-                  </p>
-
-                  <p className="mt-1 font-semibold text-slate-900">
-                    {drive.resume_shortlisting
-                      ? 'Required'
-                      : 'Not Required'}
-                  </p>
-
-                </div>
-
-
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    drive.resume_shortlisting
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-slate-200 text-slate-600'
-                  }`}
-                >
-                  {drive.resume_shortlisting
-                    ? 'Resume Screening'
-                    : 'No Resume Screening'}
-                </span>
-
-              </div>
-
-
-              {drive.resume_shortlisting && (
-                <p className="mt-2 text-xs text-slate-500">
-                  Resumes will be reviewed before
-                  the next recruitment stage.
-                </p>
-              )}
+              <p className="mt-1 font-semibold text-slate-900">
+                {drive.resume_shortlisting
+                  ? 'Required'
+                  : 'Not Required'}
+              </p>
 
             </div>
 
 
-            <div className="rounded-xl bg-slate-50 p-4">
+            <div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-600">
                 Registration Deadline
               </p>
 
@@ -542,9 +894,9 @@ useEffect(() => {
             </div>
 
 
-            <div className="rounded-xl bg-slate-50 p-4">
+            <div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-600">
                 Pre-Placement Talk
               </p>
 
@@ -557,9 +909,9 @@ useEffect(() => {
             </div>
 
 
-            <div className="rounded-xl bg-slate-50 p-4">
+            <div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-600">
                 Online Test
               </p>
 
@@ -572,9 +924,9 @@ useEffect(() => {
             </div>
 
 
-            <div className="rounded-xl bg-slate-50 p-4">
+            <div>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-sm font-medium text-slate-600">
                 Interview
               </p>
 
@@ -591,8 +943,6 @@ useEffect(() => {
         </section>
 
 
-        {/* Registration & Documents */}
-
         <section className="rounded-2xl bg-white p-6 shadow-sm">
 
           <h2 className="text-lg font-bold text-slate-900">
@@ -607,6 +957,7 @@ useEffect(() => {
               <p className="text-sm font-medium text-slate-600">
                 Registration Link
               </p>
+
 
               {drive.registration_link ? (
 
@@ -688,7 +1039,168 @@ useEffect(() => {
         </section>
 
 
-        {/* Actions */}
+        <section className="rounded-2xl border border-blue-100 bg-white p-6 shadow-sm">
+
+          <div>
+
+            <p className="text-sm font-medium text-blue-600">
+              Recruitment Management
+            </p>
+
+            <h2 className="mt-1 text-lg font-bold text-slate-900">
+              Upload Round Results
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-500">
+              Upload an Excel sheet containing the roll numbers of students who passed the selected recruitment round.
+            </p>
+
+            <p className="mt-2 text-xs text-slate-500">
+              Students whose roll numbers are present in the Excel file will advance to the next stage. Students whose roll numbers are not present will be rejected.
+            </p>
+
+          </div>
+
+
+          <div className="mt-5 space-y-5">
+
+            <div>
+
+              <label
+                htmlFor="round-name"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Recruitment Round
+              </label>
+
+
+              <select
+                id="round-name"
+                value={roundName}
+                onChange={(
+                  event
+                ) => {
+
+                  setRoundName(
+                    event.target.value
+                  )
+
+                  setUploadSuccess('')
+                  setError('')
+                  setRoundFile(null)
+
+
+                  const fileInput =
+                    document.getElementById(
+                      'round-results-file'
+                    )
+
+
+                  if (fileInput) {
+                    fileInput.value =
+                      ''
+                  }
+
+                }}
+                className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              >
+
+                {drive.resume_shortlisting && (
+
+                  <option value="Resume Shortlisting">
+                    Resume Shortlisting
+                  </option>
+
+                )}
+
+
+                <option value="PPT">
+                  PPT
+                </option>
+
+
+                <option value="Online Test">
+                  Online Test
+                </option>
+
+
+                <option value="Interview">
+                  Interview
+                </option>
+
+
+                <option value="Result">
+                  Result
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div>
+
+              <label
+                htmlFor="round-results-file"
+                className="block text-sm font-medium text-slate-700"
+              >
+                Excel File
+              </label>
+
+
+              <div className="mt-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-5">
+
+                <input
+                  id="round-results-file"
+                  type="file"
+                  accept=".xlsx,.xlsm"
+                  onChange={
+                    handleRoundFileChange
+                  }
+                  className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-blue-600 file:px-4 file:py-2.5 file:text-sm file:font-semibold file:text-white hover:file:bg-blue-700"
+                />
+
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Accepted files: .xlsx and .xlsm
+                </p>
+
+
+                {roundFile && (
+
+                  <p className="mt-3 text-sm font-medium text-slate-700">
+                    Selected:
+                    {' '}
+                    {roundFile.name}
+                  </p>
+
+                )}
+
+              </div>
+
+            </div>
+
+
+            <button
+              type="button"
+              onClick={
+                handleUploadResults
+              }
+              disabled={
+                uploadingResults ||
+                !roundFile
+              }
+              className="w-full rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+            >
+              {uploadingResults
+                ? 'Processing Results...'
+                : 'Upload Round Results'}
+            </button>
+
+          </div>
+
+        </section>
+
 
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
 
@@ -756,5 +1268,6 @@ useEffect(() => {
     </div>
   )
 }
+
 
 export default AdminDriveDetails

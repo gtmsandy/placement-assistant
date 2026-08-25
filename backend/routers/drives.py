@@ -14,6 +14,7 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from database import get_db
+
 from models import Application
 from models import PlacementDrive
 from models import Student
@@ -50,7 +51,196 @@ def normalize_roll_no(value):
         .strip()
         .lower()
         .replace(" ", "")
+        .replace("\u00a0", "")
     )
+
+
+def normalize_stage(stage):
+    if not stage:
+        return ""
+
+    value = (
+        str(stage)
+        .strip()
+        .lower()
+        .replace("-", " ")
+        .replace("_", " ")
+    )
+
+    value = " ".join(
+        value.split()
+    )
+
+    if value in {
+        "resume shortlisting",
+        "resumeshortlisting",
+    }:
+        return "Resume Shortlisting"
+
+    if value == "ppt":
+        return "PPT"
+
+    if value in {
+        "online test",
+        "onlinetest",
+    }:
+        return "Online Test"
+
+    if value == "interview":
+        return "Interview"
+
+    if value == "result":
+        return "Result"
+
+    if value == "applied":
+        return "Applied"
+
+    return str(stage).strip()
+
+
+def get_ready_source_stages(
+    drive: PlacementDrive,
+    stage: str,
+):
+    """
+    Returns the application stages that are considered
+    ready for the selected recruitment round.
+
+    This deliberately handles applications created under
+    an older configuration of the drive.
+    """
+
+    if stage == "Resume Shortlisting":
+        return [
+            "Applied",
+            "Resume Shortlisting",
+        ]
+
+    if stage == "PPT":
+        if drive.resume_shortlisting:
+            return [
+                "PPT",
+            ]
+
+        return [
+            "Applied",
+            "Resume Shortlisting",
+            "PPT",
+        ]
+
+    if stage == "Online Test":
+        return [
+            "Online Test",
+        ]
+
+    if stage == "Interview":
+        return [
+            "Interview",
+        ]
+
+    if stage == "Result":
+        return [
+            "Result",
+        ]
+
+    return []
+
+
+def get_next_stage(
+    stage: str,
+):
+    if stage == "Resume Shortlisting":
+        return "PPT"
+
+    if stage == "PPT":
+        return "Online Test"
+
+    if stage == "Online Test":
+        return "Interview"
+
+    if stage == "Interview":
+        return "Result"
+
+    if stage == "Result":
+        return None
+
+    return None
+
+
+def check_eligibility_for_drive(
+    student: Student,
+    drive: PlacementDrive,
+):
+    if student.cgpa < drive.min_cgpa:
+        return False, (
+            f"Minimum CGPA required: "
+            f"{drive.min_cgpa}"
+        )
+
+    if (
+        student.tenth_percentage
+        < drive.min_tenth
+    ):
+        return False, (
+            f"Minimum 10th percentage required: "
+            f"{drive.min_tenth}"
+        )
+
+    if (
+        student.twelfth_percentage
+        < drive.min_twelfth
+    ):
+        return False, (
+            f"Minimum 12th percentage required: "
+            f"{drive.min_twelfth}"
+        )
+
+    if (
+        student.active_backlogs
+        > drive.max_backlogs
+    ):
+        return False, (
+            f"Maximum backlogs allowed: "
+            f"{drive.max_backlogs}"
+        )
+
+    if drive.branches:
+        allowed_branches = [
+            branch.strip().upper()
+            for branch in drive.branches.split(",")
+            if branch.strip()
+        ]
+
+        if (
+            student.branch.upper()
+            not in allowed_branches
+        ):
+            return False, (
+                "Your branch is not eligible"
+            )
+
+    if (
+        drive.graduation_year
+        and student.graduation_year
+        != drive.graduation_year
+    ):
+        return False, (
+            f"Graduation year must be "
+            f"{drive.graduation_year}"
+        )
+
+    if (
+        drive.gender
+        and drive.gender.lower() != "any"
+        and student.gender.lower()
+        != drive.gender.lower()
+    ):
+        return False, (
+            "Gender eligibility criteria "
+            "not satisfied"
+        )
+
+    return True, None
 
 
 @router.get(
@@ -58,11 +248,17 @@ def normalize_roll_no(value):
     response_model=list[DriveResponse],
 )
 def get_drives(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(
+        get_db
+    ),
 ):
     return (
-        db.query(PlacementDrive)
+        db.query(
+            PlacementDrive
+        )
         .order_by(
             PlacementDrive.id.desc()
         )
@@ -76,13 +272,20 @@ def get_drives(
 )
 def get_drive(
     drive_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(
+        get_db
+    ),
 ):
     drive = (
-        db.query(PlacementDrive)
+        db.query(
+            PlacementDrive
+        )
         .filter(
-            PlacementDrive.id == drive_id
+            PlacementDrive.id
+            == drive_id
         )
         .first()
     )
@@ -90,7 +293,9 @@ def get_drive(
     if not drive:
         raise HTTPException(
             status_code=404,
-            detail="Placement drive not found",
+            detail=(
+                "Placement drive not found"
+            ),
         )
 
     return drive
@@ -102,8 +307,12 @@ def get_drive(
 )
 def create_drive(
     drive_data: DriveCreate,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_admin
+    ),
+    db: Session = Depends(
+        get_db
+    ),
 ):
     try:
         drive = PlacementDrive(
@@ -111,7 +320,9 @@ def create_drive(
         )
 
         db.add(drive)
+
         db.commit()
+
         db.refresh(drive)
 
         return drive
@@ -135,13 +346,20 @@ def create_drive(
 def update_drive(
     drive_id: int,
     drive_data: DriveUpdate,
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_admin
+    ),
+    db: Session = Depends(
+        get_db
+    ),
 ):
     drive = (
-        db.query(PlacementDrive)
+        db.query(
+            PlacementDrive
+        )
         .filter(
-            PlacementDrive.id == drive_id
+            PlacementDrive.id
+            == drive_id
         )
         .first()
     )
@@ -149,22 +367,29 @@ def update_drive(
     if not drive:
         raise HTTPException(
             status_code=404,
-            detail="Placement drive not found",
+            detail=(
+                "Placement drive not found"
+            ),
         )
 
-    update_data = drive_data.model_dump(
-        exclude_unset=True
+    update_data = (
+        drive_data.model_dump(
+            exclude_unset=True
+        )
     )
 
     try:
-        for field, value in update_data.items():
+        for field, value in (
+            update_data.items()
+        ):
             setattr(
                 drive,
                 field,
-                value
+                value,
             )
 
         db.commit()
+
         db.refresh(drive)
 
         return drive
@@ -188,13 +413,20 @@ def update_drive(
 async def upload_job_description(
     drive_id: int,
     file: UploadFile = File(...),
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_admin
+    ),
+    db: Session = Depends(
+        get_db
+    ),
 ):
     drive = (
-        db.query(PlacementDrive)
+        db.query(
+            PlacementDrive
+        )
         .filter(
-            PlacementDrive.id == drive_id
+            PlacementDrive.id
+            == drive_id
         )
         .first()
     )
@@ -202,7 +434,9 @@ async def upload_job_description(
     if not drive:
         raise HTTPException(
             status_code=404,
-            detail="Placement drive not found",
+            detail=(
+                "Placement drive not found"
+            ),
         )
 
     if not file.filename:
@@ -220,7 +454,9 @@ async def upload_job_description(
     if extension != ".pdf":
         raise HTTPException(
             status_code=400,
-            detail="Only PDF files are allowed",
+            detail=(
+                "Only PDF files are allowed"
+            ),
         )
 
     unique_name = (
@@ -229,27 +465,28 @@ async def upload_job_description(
 
     file_path = os.path.join(
         UPLOAD_DIR,
-        unique_name
+        unique_name,
     )
 
     old_jd_path = None
 
     if drive.jd:
-        old_jd_path = drive.jd.lstrip(
-            "/"
-        ).replace(
-            "/",
-            os.sep
+        old_jd_path = (
+            drive.jd
+            .lstrip("/")
+            .replace(
+                "/",
+                os.sep,
+            )
         )
 
     try:
         with open(
             file_path,
-            "wb"
+            "wb",
         ) as buffer:
 
             while True:
-
                 chunk = await file.read(
                     1024 * 1024
                 )
@@ -268,11 +505,14 @@ async def upload_job_description(
         )
 
         db.commit()
+
         db.refresh(drive)
 
         if (
             old_jd_path
-            and os.path.exists(old_jd_path)
+            and os.path.exists(
+                old_jd_path
+            )
             and old_jd_path != file_path
         ):
             try:
@@ -285,10 +525,11 @@ async def upload_job_description(
         return drive
 
     except Exception as error:
-
         db.rollback()
 
-        if os.path.exists(file_path):
+        if os.path.exists(
+            file_path
+        ):
             try:
                 os.remove(
                     file_path
@@ -304,6 +545,9 @@ async def upload_job_description(
             ),
         )
 
+    finally:
+        await file.close()
+
 
 @router.post(
     "/{drive_id}/round-results",
@@ -312,13 +556,20 @@ async def upload_round_results(
     drive_id: int,
     stage: str = Form(...),
     file: UploadFile = File(...),
-    current_user: User = Depends(require_admin),
-    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_admin
+    ),
+    db: Session = Depends(
+        get_db
+    ),
 ):
     drive = (
-        db.query(PlacementDrive)
+        db.query(
+            PlacementDrive
+        )
         .filter(
-            PlacementDrive.id == drive_id
+            PlacementDrive.id
+            == drive_id
         )
         .first()
     )
@@ -326,8 +577,12 @@ async def upload_round_results(
     if not drive:
         raise HTTPException(
             status_code=404,
-            detail="Placement drive not found",
+            detail=(
+                "Placement drive not found"
+            ),
         )
+
+    stage = normalize_stage(stage)
 
     allowed_stages = [
         "Resume Shortlisting",
@@ -341,8 +596,24 @@ async def upload_round_results(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Invalid stage. Allowed stages are: "
-                + ", ".join(allowed_stages)
+                "Invalid recruitment round. "
+                "Allowed rounds are: "
+                + ", ".join(
+                    allowed_stages
+                )
+            ),
+        )
+
+    if (
+        stage == "Resume Shortlisting"
+        and not drive.resume_shortlisting
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Resume shortlisting is "
+                "not enabled for this "
+                "placement drive"
             ),
         )
 
@@ -356,10 +627,16 @@ async def upload_round_results(
         file.filename
     )[1].lower()
 
-    if extension != ".xlsx":
+    if extension not in {
+        ".xlsx",
+        ".xlsm",
+    }:
         raise HTTPException(
             status_code=400,
-            detail="Only .xlsx Excel files are allowed",
+            detail=(
+                "Only .xlsx and .xlsm "
+                "Excel files are allowed"
+            ),
         )
 
     try:
@@ -368,7 +645,10 @@ async def upload_round_results(
         if not contents:
             raise HTTPException(
                 status_code=400,
-                detail="The uploaded Excel file is empty",
+                detail=(
+                    "The uploaded Excel "
+                    "file is empty"
+                ),
             )
 
         workbook = load_workbook(
@@ -394,7 +674,8 @@ async def upload_round_results(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Unable to read the Excel file: "
+                "Unable to read the "
+                "Excel file: "
                 f"{str(error)}"
             ),
         )
@@ -402,30 +683,29 @@ async def upload_round_results(
     if not rows:
         raise HTTPException(
             status_code=400,
-            detail="The Excel file contains no data",
+            detail=(
+                "The Excel file "
+                "contains no data"
+            ),
         )
 
-    headers = [
-        str(value).strip().lower()
-        if value is not None
-        else ""
-        for value in rows[0]
-    ]
+    headers = []
+
+    for value in rows[0]:
+        if value is None:
+            headers.append("")
+        else:
+            headers.append(
+                str(value)
+                .strip()
+                .lower()
+            )
 
     roll_no_index = None
 
-    possible_roll_headers = {
-        "roll no.",
-        "roll no",
-        "roll number",
-        "roll_number",
-        "rollno",
-        "roll_no",
-        "roll",
-        "roll number.",
-    }
-
-    for index, header in enumerate(headers):
+    for index, header in enumerate(
+        headers
+    ):
         normalized_header = (
             header
             .replace("_", " ")
@@ -434,15 +714,18 @@ async def upload_round_results(
             .strip()
         )
 
-        if (
-            header in possible_roll_headers
-            or normalized_header in {
-                "roll no",
-                "roll number",
-                "rollno",
-                "roll",
-            }
-        ):
+        normalized_header = (
+            " ".join(
+                normalized_header.split()
+            )
+        )
+
+        if normalized_header in {
+            "roll no",
+            "roll number",
+            "rollno",
+            "roll",
+        }:
             roll_no_index = index
             break
 
@@ -450,120 +733,268 @@ async def upload_round_results(
         raise HTTPException(
             status_code=400,
             detail=(
-                "Excel file must contain a Roll No. column"
+                "Excel file must contain "
+                "a Roll No. column"
             ),
         )
 
-    roll_numbers = []
+    excel_roll_numbers = set()
 
     for row in rows[1:]:
 
         if (
-            roll_no_index >= len(row)
-            or row[roll_no_index] is None
+            roll_no_index
+            >= len(row)
         ):
             continue
 
+        value = row[
+            roll_no_index
+        ]
+
+        if value is None:
+            continue
+
         roll_no = normalize_roll_no(
-            row[roll_no_index]
+            value
         )
 
         if roll_no:
-            roll_numbers.append(
+            excel_roll_numbers.add(
                 roll_no
             )
 
-    if not roll_numbers:
+    if not excel_roll_numbers:
         raise HTTPException(
             status_code=400,
             detail=(
-                "No student roll numbers were found "
-                "in the Excel file"
+                "No student roll numbers "
+                "were found in the Excel file"
             ),
         )
 
-    students = (
-        db.query(Student)
+    source_stages = (
+        get_ready_source_stages(
+            drive,
+            stage,
+        )
+    )
+
+    next_stage = get_next_stage(
+        stage
+    )
+
+    applications = (
+        db.query(
+            Application,
+            Student,
+        )
+        .join(
+            Student,
+            Student.id
+            == Application.student_id,
+        )
+        .filter(
+            Application.drive_id
+            == drive_id,
+        )
         .all()
     )
 
-    student_by_roll_no = {}
+    current_stage_applications = []
 
-    for student in students:
+    for (
+        application,
+        student,
+    ) in applications:
 
-        normalized_database_roll_no = (
+        application_stage = (
+            normalize_stage(
+                application.current_stage
+            )
+        )
+
+        application_status = (
+            application.status
+            or "Applied"
+        )
+
+        if (
+            application_stage
+            not in source_stages
+        ):
+            continue
+
+        if application_status in {
+            "Rejected",
+            "Selected",
+        }:
+            continue
+
+        current_stage_applications.append(
+            (
+                application,
+                student,
+            )
+        )
+
+    if not current_stage_applications:
+
+        available_stages = sorted(
+            {
+                normalize_stage(
+                    application.current_stage
+                )
+                for (
+                    application,
+                    student,
+                ) in applications
+                if (
+                    application.status
+                    not in {
+                        "Rejected",
+                        "Selected",
+                    }
+                )
+            }
+        )
+
+        if available_stages:
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"No applications are "
+                    f"currently ready for "
+                    f"the '{stage}' round. "
+                    f"Current application "
+                    f"stages are: "
+                    f"{', '.join(available_stages)}"
+                ),
+            )
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No applications exist "
+                "for this placement drive"
+            ),
+        )
+
+    passed_count = 0
+    failed_count = 0
+
+    processed_students = []
+
+    for (
+        application,
+        student,
+    ) in current_stage_applications:
+
+        student_roll_no = (
             normalize_roll_no(
                 student.roll_no
             )
         )
 
-        if normalized_database_roll_no:
-            student_by_roll_no[
-                normalized_database_roll_no
-            ] = student
+        if (
+            student_roll_no
+            in excel_roll_numbers
+        ):
 
-    updated_count = 0
-    not_found_roll_numbers = []
+            passed_count += 1
 
-    for roll_no in roll_numbers:
+            if stage == "Result":
 
-        student = student_by_roll_no.get(
-            roll_no
-        )
+                application.status = (
+                    "Selected"
+                )
 
-        if not student:
-            not_found_roll_numbers.append(
-                roll_no
+                application.current_stage = (
+                    "Result"
+                )
+
+            else:
+
+                application.status = (
+                    "Shortlisted"
+                )
+
+                application.current_stage = (
+                    next_stage
+                    if next_stage
+                    else stage
+                )
+
+            processed_students.append(
+                {
+                    "roll_no":
+                        student.roll_no,
+                    "result":
+                        "passed",
+                }
             )
-            continue
 
-        application = (
-            db.query(Application)
-            .filter(
-                Application.student_id
-                == student.id,
-                Application.drive_id
-                == drive_id,
-            )
-            .first()
-        )
-
-        if not application:
-            not_found_roll_numbers.append(
-                roll_no
-            )
-            continue
-
-        application.current_stage = stage
-
-        if stage == "Result":
-            application.status = "Selected"
         else:
-            application.status = "Shortlisted"
 
-        updated_count += 1
+            failed_count += 1
+
+            application.status = (
+                "Rejected"
+            )
+
+            application.current_stage = (
+                stage
+            )
+
+            processed_students.append(
+                {
+                    "roll_no":
+                        student.roll_no,
+                    "result":
+                        "rejected",
+                }
+            )
 
     try:
+
         db.commit()
 
     except Exception as error:
+
         db.rollback()
 
         raise HTTPException(
             status_code=500,
             detail=(
-                "Failed to update round results: "
+                "Failed to process "
+                "round results: "
                 f"{str(error)}"
             ),
         )
 
     return {
-        "message": "Round results uploaded successfully",
-        "drive_id": drive_id,
-        "stage": stage,
-        "total_students_in_excel": len(
-            roll_numbers
+        "message": (
+            "Round results processed "
+            "successfully"
         ),
-        "updated_applications": updated_count,
-        "not_found": not_found_roll_numbers,
+        "drive_id":
+            drive_id,
+        "stage":
+            stage,
+        "next_stage":
+            next_stage,
+        "passed_count":
+            passed_count,
+        "failed_count":
+            failed_count,
+        "total_processed":
+            (
+                passed_count
+                + failed_count
+            ),
+        "uploaded_filename":
+            file.filename,
+        "processed_students":
+            processed_students,
     }

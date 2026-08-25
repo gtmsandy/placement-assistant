@@ -29,7 +29,10 @@ export function getAuthHeaders(
 
 
 function notifyAuthChanged() {
-  if (typeof window !== 'undefined') {
+  if (
+    typeof window !==
+    'undefined'
+  ) {
     window.dispatchEvent(
       new Event('auth-changed')
     )
@@ -57,14 +60,18 @@ export function logoutUser() {
 
 export function getStoredUser() {
   const storedUser =
-    localStorage.getItem('user')
+    localStorage.getItem(
+      'user'
+    )
 
   if (!storedUser) {
     return null
   }
 
   try {
-    return JSON.parse(storedUser)
+    return JSON.parse(
+      storedUser
+    )
   } catch {
     return null
   }
@@ -100,14 +107,85 @@ async function parseResponse(
   }
 
   if (!response.ok) {
-    const message =
-      typeof data === 'object' &&
-      data?.detail
-        ? data.detail
-        : typeof data === 'string' &&
-          data
-          ? data
-          : `Request failed with status ${response.status}`
+    let message =
+      `Request failed with status ${response.status}`
+
+    if (
+      typeof data ===
+        'string' &&
+      data.trim()
+    ) {
+      message =
+        data
+
+    } else if (
+      data &&
+      typeof data ===
+        'object'
+    ) {
+      if (
+        typeof data.detail ===
+        'string'
+      ) {
+        message =
+          data.detail
+
+      } else if (
+        Array.isArray(
+          data.detail
+        )
+      ) {
+        message =
+          data.detail
+            .map(
+              item =>
+                item?.msg ||
+                JSON.stringify(
+                  item
+                )
+            )
+            .join(', ')
+
+      } else if (
+        data.detail &&
+        typeof data.detail ===
+          'object'
+      ) {
+        message =
+          JSON.stringify(
+            data.detail,
+            null,
+            2
+          )
+
+      } else if (
+        typeof data.message ===
+        'string'
+      ) {
+        message =
+          data.message
+
+      } else if (
+        data.message &&
+        typeof data.message ===
+          'object'
+      ) {
+        message =
+          JSON.stringify(
+            data.message,
+            null,
+            2
+          )
+
+      } else {
+        message =
+          JSON.stringify(
+            data,
+            null,
+            2
+          )
+      }
+    }
 
     throw new Error(
       message
@@ -118,6 +196,10 @@ async function parseResponse(
 }
 
 
+/* =========================
+   AUTHENTICATION
+   ========================= */
+
 export async function loginUser(
   identifier,
   password,
@@ -127,18 +209,20 @@ export async function loginUser(
     await fetch(
       `${API_BASE_URL}/api/auth/login`,
       {
-        method: 'POST',
+        method:
+          'POST',
 
         headers: {
           'Content-Type':
             'application/json',
         },
 
-        body: JSON.stringify({
-          identifier,
-          password,
-          role,
-        }),
+        body:
+          JSON.stringify({
+            identifier,
+            password,
+            role,
+          }),
       }
     )
 
@@ -192,6 +276,10 @@ export async function getMe() {
 }
 
 
+/* =========================
+   STUDENTS
+   ========================= */
+
 export async function getStudents() {
   const response =
     await fetch(
@@ -211,6 +299,12 @@ export async function getStudents() {
 export async function getStudent(
   studentId
 ) {
+  if (!studentId) {
+    throw new Error(
+      'Student ID is missing.'
+    )
+  }
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/students/${studentId}`,
@@ -230,11 +324,18 @@ export async function updateStudent(
   studentId,
   studentData
 ) {
+  if (!studentId) {
+    throw new Error(
+      'Student ID is missing.'
+    )
+  }
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/students/${studentId}`,
       {
-        method: 'PATCH',
+        method:
+          'PATCH',
 
         headers:
           getAuthHeaders({
@@ -242,9 +343,10 @@ export async function updateStudent(
               'application/json',
           }),
 
-        body: JSON.stringify(
-          studentData
-        ),
+        body:
+          JSON.stringify(
+            studentData
+          ),
       }
     )
 
@@ -258,6 +360,18 @@ export async function uploadResume(
   studentId,
   file
 ) {
+  if (!studentId) {
+    throw new Error(
+      'Student ID is missing.'
+    )
+  }
+
+  if (!file) {
+    throw new Error(
+      'Please select a resume file.'
+    )
+  }
+
   const formData =
     new FormData()
 
@@ -270,12 +384,14 @@ export async function uploadResume(
     await fetch(
       `${API_BASE_URL}/api/students/${studentId}/resume`,
       {
-        method: 'POST',
+        method:
+          'POST',
 
         headers:
           getAuthHeaders(),
 
-        body: formData,
+        body:
+          formData,
       }
     )
 
@@ -284,6 +400,10 @@ export async function uploadResume(
   )
 }
 
+
+/* =========================
+   PLACEMENT DRIVES
+   ========================= */
 
 export async function getDrives() {
   const response =
@@ -304,6 +424,12 @@ export async function getDrives() {
 export async function getDrive(
   driveId
 ) {
+  if (!driveId) {
+    throw new Error(
+      'Drive ID is missing.'
+    )
+  }
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/drives/${driveId}`,
@@ -326,7 +452,8 @@ export async function createDrive(
     await fetch(
       `${API_BASE_URL}/api/drives/`,
       {
-        method: 'POST',
+        method:
+          'POST',
 
         headers:
           getAuthHeaders({
@@ -334,9 +461,10 @@ export async function createDrive(
               'application/json',
           }),
 
-        body: JSON.stringify(
-          drive
-        ),
+        body:
+          JSON.stringify(
+            drive
+          ),
       }
     )
 
@@ -350,11 +478,18 @@ export async function updateDrive(
   driveId,
   drive
 ) {
+  if (!driveId) {
+    throw new Error(
+      'Drive ID is missing.'
+    )
+  }
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/drives/${driveId}`,
       {
-        method: 'PATCH',
+        method:
+          'PATCH',
 
         headers:
           getAuthHeaders({
@@ -362,9 +497,10 @@ export async function updateDrive(
               'application/json',
           }),
 
-        body: JSON.stringify(
-          drive
-        ),
+        body:
+          JSON.stringify(
+            drive
+          ),
       }
     )
 
@@ -387,10 +523,39 @@ export async function withdrawDrive(
 }
 
 
+/* =========================
+   JOB DESCRIPTION
+   ========================= */
+
 export async function uploadJobDescription(
   driveId,
   file
 ) {
+  if (!driveId) {
+    throw new Error(
+      'Drive ID is missing.'
+    )
+  }
+
+  if (!file) {
+    throw new Error(
+      'Please select a PDF file.'
+    )
+  }
+
+  const fileName =
+    file.name.toLowerCase()
+
+  if (
+    !fileName.endsWith(
+      '.pdf'
+    )
+  ) {
+    throw new Error(
+      'Only PDF files are allowed.'
+    )
+  }
+
   const formData =
     new FormData()
 
@@ -403,12 +568,14 @@ export async function uploadJobDescription(
     await fetch(
       `${API_BASE_URL}/api/drives/${driveId}/jd`,
       {
-        method: 'POST',
+        method:
+          'POST',
 
         headers:
           getAuthHeaders(),
 
-        body: formData,
+        body:
+          formData,
       }
     )
 
@@ -417,6 +584,167 @@ export async function uploadJobDescription(
   )
 }
 
+
+/* =========================
+   ROUND RESULTS
+   ========================= */
+
+function normalizeRoundName(
+  roundName
+) {
+  if (!roundName) {
+    return ''
+  }
+
+  const value =
+    String(
+      roundName
+    )
+      .trim()
+      .toLowerCase()
+
+  if (
+    value ===
+    'resume shortlisting'
+  ) {
+    return 'Resume Shortlisting'
+  }
+
+  if (
+    value ===
+      'ppt'
+  ) {
+    return 'PPT'
+  }
+
+  if (
+    value ===
+      'online test' ||
+    value ===
+      'online_test' ||
+    value ===
+      'onlinetest'
+  ) {
+    return 'Online Test'
+  }
+
+  if (
+    value ===
+      'interview'
+  ) {
+    return 'Interview'
+  }
+
+  if (
+    value ===
+      'result'
+  ) {
+    return 'Result'
+  }
+
+  return roundName
+}
+
+
+export async function uploadRoundResults(
+  driveId,
+  roundName,
+  file
+) {
+  if (!driveId) {
+    throw new Error(
+      'Drive ID is missing.'
+    )
+  }
+
+  if (!roundName) {
+    throw new Error(
+      'Recruitment round is missing.'
+    )
+  }
+
+  if (!file) {
+    throw new Error(
+      'Please select an Excel file.'
+    )
+  }
+
+  const fileName =
+    file.name.toLowerCase()
+
+  if (
+    !fileName.endsWith(
+      '.xlsx'
+    ) &&
+    !fileName.endsWith(
+      '.xlsm'
+    )
+  ) {
+    throw new Error(
+      'Only .xlsx and .xlsm Excel files are allowed.'
+    )
+  }
+
+  const stage =
+    normalizeRoundName(
+      roundName
+    )
+
+  const validStages = [
+    'Resume Shortlisting',
+    'PPT',
+    'Online Test',
+    'Interview',
+    'Result',
+  ]
+
+  if (
+    !validStages.includes(
+      stage
+    )
+  ) {
+    throw new Error(
+      `Invalid recruitment round: ${stage}`
+    )
+  }
+
+  const formData =
+    new FormData()
+
+  formData.append(
+    'stage',
+    stage
+  )
+
+  formData.append(
+    'file',
+    file
+  )
+
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/drives/${driveId}/round-results`,
+      {
+        method:
+          'POST',
+
+        headers:
+          getAuthHeaders(),
+
+        body:
+          formData,
+      }
+    )
+
+  return parseResponse(
+    response
+  )
+}
+
+
+/* =========================
+   APPLICATIONS
+   ========================= */
 
 export async function getApplications() {
   const response =
@@ -438,11 +766,24 @@ export async function createApplication(
   studentId,
   driveId
 ) {
+  if (!studentId) {
+    throw new Error(
+      'Student ID is missing.'
+    )
+  }
+
+  if (!driveId) {
+    throw new Error(
+      'Drive ID is missing.'
+    )
+  }
+
   const response =
     await fetch(
       `${API_BASE_URL}/api/applications/`,
       {
-        method: 'POST',
+        method:
+          'POST',
 
         headers:
           getAuthHeaders({
@@ -450,13 +791,14 @@ export async function createApplication(
               'application/json',
           }),
 
-        body: JSON.stringify({
-          student_id:
-            studentId,
+        body:
+          JSON.stringify({
+            student_id:
+              studentId,
 
-          drive_id:
-            driveId,
-        }),
+            drive_id:
+              driveId,
+          }),
       }
     )
 
@@ -471,6 +813,12 @@ export async function updateApplication(
   status,
   currentStage
 ) {
+  if (!applicationId) {
+    throw new Error(
+      'Application ID is missing.'
+    )
+  }
+
   const params =
     new URLSearchParams()
 
@@ -493,15 +841,18 @@ export async function updateApplication(
 
   const url =
     `${API_BASE_URL}/api/applications/${applicationId}` +
-    (query
-      ? `?${query}`
-      : '')
+    (
+      query
+        ? `?${query}`
+        : ''
+    )
 
   const response =
     await fetch(
       url,
       {
-        method: 'PATCH',
+        method:
+          'PATCH',
 
         headers:
           getAuthHeaders(),
