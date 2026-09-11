@@ -1,16 +1,42 @@
-# React + Vite
+# Placement Assistant
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Full-stack campus placement management platform for students and placement administrators.
 
-Currently, two official plugins are available:
+Placement Assistant provides a centralized system for managing placement drives, student eligibility, applications, recruitment stages, and placement tracking.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Tech Stack
 
-## React Compiler
+### Frontend
+- React 18
+- Vite
+- Tailwind CSS
+- React Router
+- Context API
+- Progressive Web App (PWA)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Backend
+- Python
+- FastAPI
+- SQLAlchemy
+- Uvicorn
+- JWT Authentication
+- bcrypt
 
-## Expanding the ESLint configuration
+### Database
+- PostgreSQL
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## Run Locally
+
+### Prerequisites
+
+- Python 3.12+
+- Node.js and npm
+- PostgreSQL
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/gtmsandy/placement-assistant.git
+cd placement-assistant
