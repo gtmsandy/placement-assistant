@@ -43,6 +43,14 @@ class StudentCreate(StudentBase):
     pass
 
 
+class StudentProfileUpdate(BaseModel):
+    """Fields a student is allowed to edit themselves."""
+
+    mobile: Optional[str] = None
+
+    personal_email: Optional[str] = None
+
+
 class StudentResponse(StudentBase):
     id: int
 

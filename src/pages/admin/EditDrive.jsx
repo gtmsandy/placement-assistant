@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-
-
-const API_BASE_URL =
-  'http://127.0.0.1:8000'
+import { API_BASE_URL } from '../../services/api'
 
 
 function toDateTimeLocal(value) {

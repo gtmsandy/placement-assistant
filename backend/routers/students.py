@@ -16,6 +16,7 @@ from models import User
 from routers.auth import get_current_user
 from routers.auth import require_admin
 from schemas import StudentCreate
+from schemas import StudentProfileUpdate
 from schemas import StudentResponse
 
 
@@ -132,7 +133,7 @@ def create_student(
 )
 def update_student(
     student_id: int,
-    student_data: StudentCreate,
+    student_data: StudentProfileUpdate,
     current_user: User = Depends(
         get_current_user
     ),
@@ -161,8 +162,8 @@ def update_student(
             detail="Student not found",
         )
 
-    updated_data = (
-        student_data.model_dump()
+    updated_data = student_data.model_dump(
+        exclude_unset=True
     )
 
     for field, value in updated_data.items():

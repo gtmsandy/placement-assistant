@@ -8,3 +8,4 @@ python-jose[cryptography]
 python-dotenv
 openpyxl
 psycopg2-binary
+alembic

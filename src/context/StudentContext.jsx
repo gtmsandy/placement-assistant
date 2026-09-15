@@ -295,7 +295,6 @@ export function StudentProvider({
             data
           )
 
-
         setStudent(
           mappedStudent
         )

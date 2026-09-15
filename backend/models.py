@@ -5,9 +5,11 @@ from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
+from sqlalchemy import Index
 from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
+from sqlalchemy import UniqueConstraint
 
 from database import Base
 
@@ -240,6 +242,18 @@ class PlacementDrive(Base):
 class Application(Base):
     __tablename__ = "applications"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "student_id",
+            "drive_id",
+            name="uq_applications_student_drive",
+        ),
+        Index(
+            "ix_applications_drive_id",
+            "drive_id",
+        ),
+    )
+
     id = Column(
         Integer,
         primary_key=True,
@@ -248,11 +262,21 @@ class Application(Base):
 
     student_id = Column(
         Integer,
+        ForeignKey(
+            "students.id",
+            name="fk_applications_student_id_students",
+            ondelete="RESTRICT",
+        ),
         nullable=False
     )
 
     drive_id = Column(
         Integer,
+        ForeignKey(
+            "placement_drives.id",
+            name="fk_applications_drive_id_placement_drives",
+            ondelete="RESTRICT",
+        ),
         nullable=False
     )
 

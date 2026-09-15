@@ -12,11 +12,8 @@ import {
   getDrive,
   withdrawDrive,
   uploadRoundResults,
+  API_BASE_URL,
 } from '../../services/api'
-
-
-const API_BASE_URL =
-  'http://127.0.0.1:8000'
 
 
 function AdminDriveDetails() {

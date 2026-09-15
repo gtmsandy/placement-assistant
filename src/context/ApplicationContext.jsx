@@ -9,15 +9,13 @@ import {
   getApplications,
   getStoredUser,
   getAuthHeaders,
+  getAuthToken,
+  API_BASE_URL,
 } from '../services/api'
 
 
 const ApplicationContext =
   createContext()
-
-
-const API_BASE_URL =
-  'http://127.0.0.1:8000'
 
 
 export function ApplicationProvider({
@@ -46,6 +44,13 @@ export function ApplicationProvider({
       try {
         setLoading(true)
         setError(null)
+
+        if (!getAuthToken()) {
+          if (!cancelled) {
+            setApplications([])
+          }
+          return
+        }
 
         const data =
           await getApplications()

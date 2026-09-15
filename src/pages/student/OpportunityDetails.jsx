@@ -5,10 +5,7 @@ import { useStudent } from '../../context/StudentContext'
 import { useApplications } from '../../context/ApplicationContext'
 
 import { checkEligibility } from '../../services/eligibilityService'
-
-
-const API_BASE_URL =
-  'http://127.0.0.1:8000'
+import { API_BASE_URL } from '../../services/api'
 
 
 function OpportunityDetails() {

@@ -18,6 +18,7 @@ import {
 
 import {
   getStudents,
+  logoutUser,
 } from '../../services/api'
 
 
@@ -353,16 +354,28 @@ function AdminDashboard() {
           </div>
 
 
-          <button
-            onClick={() =>
-              navigate(
-                '/admin/create-drive'
-              )
-            }
-            className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto"
-          >
-            + New Drive
-          </button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <button
+              onClick={() =>
+                navigate(
+                  '/admin/create-drive'
+                )
+              }
+              className="w-full rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-700 sm:w-auto"
+            >
+              + New Drive
+            </button>
+
+            <button
+              onClick={() => {
+                logoutUser()
+                navigate('/login', { replace: true })
+              }}
+              className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
+            >
+              Logout
+            </button>
+          </div>
 
         </div>
 

@@ -1,8 +1,12 @@
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from application_state import ApplicationTransitionError
+from application_state import initial_application_state
+from application_state import transition_application
 from database import get_db
 from models import Application
 from models import PlacementDrive
@@ -242,16 +246,15 @@ def create_application(
             detail=reason,
         )
 
-    initial_stage = "Applied"
-
-    if drive.resume_shortlisting:
-        initial_stage = "Resume Shortlisting"
+    initial_state = initial_application_state(
+        drive.resume_shortlisting
+    )
 
     application = Application(
         student_id=student_id,
         drive_id=application_data.drive_id,
-        status="Applied",
-        current_stage=initial_stage,
+        status=initial_state.status,
+        current_stage=initial_state.current_stage,
     )
 
     try:
@@ -260,6 +263,32 @@ def create_application(
         db.refresh(application)
 
         return application
+
+    except IntegrityError as error:
+        db.rollback()
+
+        constraint_name = getattr(
+            getattr(error.orig, "diag", None),
+            "constraint_name",
+            None,
+        )
+
+        if constraint_name == "uq_applications_student_drive":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "This student has already "
+                    "applied to this drive"
+                ),
+            ) from error
+
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Application could not be created because "
+                "related records are invalid"
+            ),
+        ) from error
 
     except Exception as error:
         db.rollback()
@@ -300,34 +329,6 @@ def update_application_status(
             detail="Application not found",
         )
 
-    allowed_statuses = [
-        "Applied",
-        "Shortlisted",
-        "Selected",
-        "Rejected",
-    ]
-
-    if status not in allowed_statuses:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid application status",
-        )
-
-    allowed_stages = [
-        "Applied",
-        "Resume Shortlisting",
-        "PPT",
-        "Online Test",
-        "Interview",
-        "Result",
-    ]
-
-    if current_stage not in allowed_stages:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid recruitment stage",
-        )
-
     drive = (
         db.query(PlacementDrive)
         .filter(
@@ -342,44 +343,18 @@ def update_application_status(
             detail="Placement drive not found",
         )
 
-    if (
-        current_stage == "Resume Shortlisting"
-        and not drive.resume_shortlisting
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Resume shortlisting is not "
-                "required for this placement drive"
-            ),
+    try:
+        transition_application(
+            application,
+            drive.resume_shortlisting,
+            status,
+            current_stage,
         )
-
-    if (
-        status == "Selected"
-        and current_stage != "Result"
-    ):
+    except ApplicationTransitionError as error:
         raise HTTPException(
-            status_code=400,
-            detail=(
-                "Selected applications must "
-                "have Result as the current stage"
-            ),
-        )
-
-    if (
-        status == "Applied"
-        and current_stage != "Applied"
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Applied applications must have "
-                "Applied as the current stage"
-            ),
-        )
-
-    application.status = status
-    application.current_stage = current_stage
+            status_code=error.http_status,
+            detail=str(error),
+        ) from error
 
     db.commit()
     db.refresh(application)

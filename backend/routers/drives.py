@@ -13,6 +13,12 @@ from fastapi import UploadFile
 
 from sqlalchemy.orm import Session
 
+from application_state import ROUND_STAGES
+from application_state import advance_application_for_round
+from application_state import is_application_ready_for_round
+from application_state import next_stage_after_round
+from application_state import normalize_stage
+from application_state import reject_application_for_round
 from database import get_db
 
 from models import Application
@@ -53,118 +59,6 @@ def normalize_roll_no(value):
         .replace(" ", "")
         .replace("\u00a0", "")
     )
-
-
-def normalize_stage(stage):
-    if not stage:
-        return ""
-
-    value = (
-        str(stage)
-        .strip()
-        .lower()
-        .replace("-", " ")
-        .replace("_", " ")
-    )
-
-    value = " ".join(
-        value.split()
-    )
-
-    if value in {
-        "resume shortlisting",
-        "resumeshortlisting",
-    }:
-        return "Resume Shortlisting"
-
-    if value == "ppt":
-        return "PPT"
-
-    if value in {
-        "online test",
-        "onlinetest",
-    }:
-        return "Online Test"
-
-    if value == "interview":
-        return "Interview"
-
-    if value == "result":
-        return "Result"
-
-    if value == "applied":
-        return "Applied"
-
-    return str(stage).strip()
-
-
-def get_ready_source_stages(
-    drive: PlacementDrive,
-    stage: str,
-):
-    """
-    Returns the application stages that are considered
-    ready for the selected recruitment round.
-
-    This deliberately handles applications created under
-    an older configuration of the drive.
-    """
-
-    if stage == "Resume Shortlisting":
-        return [
-            "Applied",
-            "Resume Shortlisting",
-        ]
-
-    if stage == "PPT":
-        if drive.resume_shortlisting:
-            return [
-                "PPT",
-            ]
-
-        return [
-            "Applied",
-            "Resume Shortlisting",
-            "PPT",
-        ]
-
-    if stage == "Online Test":
-        return [
-            "Online Test",
-        ]
-
-    if stage == "Interview":
-        return [
-            "Interview",
-        ]
-
-    if stage == "Result":
-        return [
-            "Result",
-        ]
-
-    return []
-
-
-def get_next_stage(
-    stage: str,
-):
-    if stage == "Resume Shortlisting":
-        return "PPT"
-
-    if stage == "PPT":
-        return "Online Test"
-
-    if stage == "Online Test":
-        return "Interview"
-
-    if stage == "Interview":
-        return "Result"
-
-    if stage == "Result":
-        return None
-
-    return None
 
 
 def check_eligibility_for_drive(
@@ -255,10 +149,22 @@ def get_drives(
         get_db
     ),
 ):
-    return (
-        db.query(
-            PlacementDrive
+    user_role = current_user.role.lower()
+
+    if user_role == "admin":
+        query = db.query(PlacementDrive)
+    elif user_role == "student":
+        query = db.query(PlacementDrive).filter(
+            PlacementDrive.status == "Published"
         )
+    else:
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to view placement drives",
+        )
+
+    return (
+        query
         .order_by(
             PlacementDrive.id.desc()
         )
@@ -296,6 +202,21 @@ def get_drive(
             detail=(
                 "Placement drive not found"
             ),
+        )
+
+    if (
+        current_user.role.lower() == "student"
+        and drive.status != "Published"
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Placement drive not found",
+        )
+
+    if current_user.role.lower() != "admin" and current_user.role.lower() != "student":
+        raise HTTPException(
+            status_code=403,
+            detail="You are not authorized to view placement drives",
         )
 
     return drive
@@ -584,13 +505,7 @@ async def upload_round_results(
 
     stage = normalize_stage(stage)
 
-    allowed_stages = [
-        "Resume Shortlisting",
-        "PPT",
-        "Online Test",
-        "Interview",
-        "Result",
-    ]
+    allowed_stages = list(ROUND_STAGES)
 
     if stage not in allowed_stages:
         raise HTTPException(
@@ -773,14 +688,7 @@ async def upload_round_results(
             ),
         )
 
-    source_stages = (
-        get_ready_source_stages(
-            drive,
-            stage,
-        )
-    )
-
-    next_stage = get_next_stage(
+    next_stage = next_stage_after_round(
         stage
     )
 
@@ -808,27 +716,11 @@ async def upload_round_results(
         student,
     ) in applications:
 
-        application_stage = (
-            normalize_stage(
-                application.current_stage
-            )
-        )
-
-        application_status = (
-            application.status
-            or "Applied"
-        )
-
-        if (
-            application_stage
-            not in source_stages
+        if not is_application_ready_for_round(
+            application,
+            drive.resume_shortlisting,
+            stage,
         ):
-            continue
-
-        if application_status in {
-            "Rejected",
-            "Selected",
-        }:
             continue
 
         current_stage_applications.append(
@@ -904,27 +796,11 @@ async def upload_round_results(
 
             passed_count += 1
 
-            if stage == "Result":
-
-                application.status = (
-                    "Selected"
-                )
-
-                application.current_stage = (
-                    "Result"
-                )
-
-            else:
-
-                application.status = (
-                    "Shortlisted"
-                )
-
-                application.current_stage = (
-                    next_stage
-                    if next_stage
-                    else stage
-                )
+            advance_application_for_round(
+                application,
+                drive.resume_shortlisting,
+                stage,
+            )
 
             processed_students.append(
                 {
@@ -939,12 +815,10 @@ async def upload_round_results(
 
             failed_count += 1
 
-            application.status = (
-                "Rejected"
-            )
-
-            application.current_stage = (
-                stage
+            reject_application_for_round(
+                application,
+                drive.resume_shortlisting,
+                stage,
             )
 
             processed_students.append(

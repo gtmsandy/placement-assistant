@@ -4,9 +4,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from database import Base
-from database import engine
-
 from routers import applications
 from routers import auth
 from routers import drives
@@ -18,11 +15,6 @@ import models
 os.makedirs(
     "uploads/resumes",
     exist_ok=True
-)
-
-
-Base.metadata.create_all(
-    bind=engine
 )
 
 
@@ -38,6 +30,7 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:4173",
         "http://127.0.0.1:4173",
+        "http://127.0.0.1:5177",
     ],
     allow_credentials=True,
     allow_methods=["*"],

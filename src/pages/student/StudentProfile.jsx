@@ -11,6 +11,7 @@ import {
 import {
   useStudent,
 } from '../../context/StudentContext'
+import { API_BASE_URL } from '../../services/api'
 
 
 function StudentProfile() {
@@ -48,16 +49,17 @@ function StudentProfile() {
   const fileInputRef =
     useRef(null)
 
-
   /* =========================
      SYNC FORM WITH STUDENT
   ========================= */
 
   useEffect(() => {
 
-    setFormData(student)
+    if (!loading) {
+      setFormData(student)
+    }
 
-  }, [student])
+  }, [student, loading])
 
 
   /* =========================
@@ -219,6 +221,9 @@ function StudentProfile() {
         }
 
 
+        setFormData(profileResult)
+
+
         /*
           STEP 2
           Upload ONLY if the user
@@ -367,6 +372,8 @@ function StudentProfile() {
                   }
                   type="text"
                   required
+                  readOnly
+                  aria-readonly="true"
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
                 />
 
@@ -390,6 +397,8 @@ function StudentProfile() {
                   }
                   type="text"
                   required
+                  readOnly
+                  aria-readonly="true"
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
                 />
 
@@ -413,6 +422,8 @@ function StudentProfile() {
                   }
                   type="email"
                   required
+                  readOnly
+                  aria-readonly="true"
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 outline-none focus:border-blue-500"
                 />
 
@@ -483,9 +494,8 @@ function StudentProfile() {
                     formData.gender ||
                     'Male'
                   }
-                  onChange={
-                    handleChange
-                  }
+                  disabled
+                  aria-readonly="true"
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                 >
 
@@ -517,9 +527,8 @@ function StudentProfile() {
                         formData.speciallyAbled
                       )
                     }
-                    onChange={
-                      handleChange
-                    }
+                    disabled
+                    aria-readonly="true"
                     type="checkbox"
                     className="h-4 w-4"
                   />
@@ -564,6 +573,8 @@ function StudentProfile() {
                     handleChange
                   }
                   type="number"
+                  readOnly
+                  aria-readonly="true"
                   min="0"
                   max="100"
                   step="0.01"
@@ -590,6 +601,8 @@ function StudentProfile() {
                     handleChange
                   }
                   type="number"
+                  readOnly
+                  aria-readonly="true"
                   min="0"
                   max="100"
                   step="0.01"
@@ -616,6 +629,8 @@ function StudentProfile() {
                     handleChange
                   }
                   type="number"
+                  readOnly
+                  aria-readonly="true"
                   min="0"
                   max="10"
                   step="0.01"
@@ -638,9 +653,8 @@ function StudentProfile() {
                     formData.branch ||
                     'CSE'
                   }
-                  onChange={
-                    handleChange
-                  }
+                  disabled
+                  aria-readonly="true"
                   className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
                 >
 
@@ -693,6 +707,8 @@ function StudentProfile() {
                     handleChange
                   }
                   type="number"
+                  readOnly
+                  aria-readonly="true"
                   required
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
                 />
@@ -716,6 +732,8 @@ function StudentProfile() {
                     handleChange
                   }
                   type="number"
+                  readOnly
+                  aria-readonly="true"
                   min="0"
                   required
                   className="mt-2 w-full rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
@@ -735,9 +753,8 @@ function StudentProfile() {
                         formData.historyOfBacklogs
                       )
                     }
-                    onChange={
-                      handleChange
-                    }
+                    disabled
+                    aria-readonly="true"
                     type="checkbox"
                     className="h-4 w-4"
                   />
@@ -793,7 +810,7 @@ function StudentProfile() {
                 {formData.resumeUrl && (
 
                   <a
-                    href={`http://127.0.0.1:8000${formData.resumeUrl}`}
+                    href={`${API_BASE_URL}${formData.resumeUrl}`}
                     target="_blank"
                     rel="noreferrer"
                     className="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700"
