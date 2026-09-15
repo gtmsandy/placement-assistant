@@ -62,10 +62,10 @@ REST-style HTTP API.
 
 ## Backend
 
-Open Command Prompt:
+From the project root, open Command Prompt:
 
 ```cmd
-cd C:\Users\User\OneDrive\Desktop\placement-assistant\backend
+cd backend
 venv\Scripts\activate
 python -m uvicorn main:app --reload
 ```
@@ -80,10 +80,9 @@ Uvicorn running on http://127.0.0.1:8000
 
 ## Frontend
 
-Open another terminal:
+From the project root, open another terminal:
 
 ```cmd
-cd C:\Users\User\OneDrive\Desktop\placement-assistant
 npm install
 npm run dev
 ```
