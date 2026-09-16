@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -17,6 +19,9 @@ from schemas import ApplicationCreate
 from schemas import ApplicationResponse
 from routers.auth import get_current_user
 from routers.auth import require_admin
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -231,13 +236,14 @@ def create_application(
     except Exception as error:
         db.rollback()
 
+        logger.exception(
+            "Unexpected error while creating application"
+        )
+
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Failed to create application: "
-                f"{str(error)}"
-            ),
-        )
+            detail="Failed to create application.",
+        ) from error
 
 
 @router.patch(

@@ -219,20 +219,10 @@ async function fetchAndSetDrives(
     const apiDrives =
       await getDrives()
 
-    console.log(
-      'Placement drives refreshed:',
-      apiDrives
-    )
-
     const mappedDrives =
       apiDrives.map(
         mapDriveFromApi
       )
-
-    console.log(
-      'Mapped placement drives:',
-      mappedDrives
-    )
 
     setDrives(
       mappedDrives
@@ -351,20 +341,10 @@ export function PlacementProvider({
         const apiDrive =
           mapDriveToApi(drive)
 
-        console.log(
-          'Publishing drive:',
-          apiDrive
-        )
-
         const createdDrive =
           await createDrive(
             apiDrive
           )
-
-        console.log(
-          'Drive created successfully:',
-          createdDrive
-        )
 
         /*
           Instead of manually adding the

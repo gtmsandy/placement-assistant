@@ -149,12 +149,6 @@ function AdminDriveDetails() {
           await getDrive(id)
 
 
-        console.log(
-          'Admin drive details:',
-          data
-        )
-
-
         setDrive(
           data
         )
@@ -410,12 +404,6 @@ function AdminDriveDetails() {
             uploadedRound,
             roundFile
           )
-
-
-        console.log(
-          'Round results upload response:',
-          result
-        )
 
 
         /*

@@ -71,19 +71,8 @@ function DrivePreview() {
         setPublishing(true)
         setError('')
 
-        console.log(
-          'Drive being published:',
+        await addDrive(
           drive
-        )
-
-        const publishedDrive =
-          await addDrive(
-            drive
-          )
-
-        console.log(
-          'Published drive:',
-          publishedDrive
         )
 
         alert(

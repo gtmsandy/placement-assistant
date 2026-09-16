@@ -1,5 +1,17 @@
+const configuredApiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL?.trim()
+
+if (
+  !configuredApiBaseUrl &&
+  import.meta.env.PROD
+) {
+  throw new Error(
+    'VITE_API_BASE_URL is required in production.'
+  )
+}
+
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
+  configuredApiBaseUrl ||
   'http://127.0.0.1:8001'
 
 

@@ -25,6 +25,7 @@ function StudentProfile() {
     updateStudent,
     uploadResume,
     loading,
+    error,
   } = useStudent()
 
 
@@ -335,6 +336,15 @@ function StudentProfile() {
 
 
       <main className="mx-auto max-w-3xl px-5 py-8">
+
+        {error && (
+          <div
+            role="alert"
+            className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {error}
+          </div>
+        )}
 
         <form
           onSubmit={

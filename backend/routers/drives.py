@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 from io import BytesIO
@@ -32,6 +33,9 @@ from schemas import DriveUpdate
 
 from routers.auth import get_current_user
 from routers.auth import require_admin
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -175,13 +179,14 @@ def create_drive(
     except Exception as error:
         db.rollback()
 
+        logger.exception(
+            "Unexpected error while creating placement drive"
+        )
+
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Failed to create placement drive: "
-                f"{str(error)}"
-            ),
-        )
+            detail="Failed to create placement drive.",
+        ) from error
 
 
 @router.patch(
@@ -242,13 +247,14 @@ def update_drive(
     except Exception as error:
         db.rollback()
 
+        logger.exception(
+            "Unexpected error while updating placement drive"
+        )
+
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Failed to update placement drive: "
-                f"{str(error)}"
-            ),
-        )
+            detail="Failed to update placement drive.",
+        ) from error
 
 
 @router.post(
@@ -372,6 +378,10 @@ async def upload_job_description(
     except Exception as error:
         db.rollback()
 
+        logger.exception(
+            "Unexpected error while uploading job description"
+        )
+
         if os.path.exists(
             file_path
         ):
@@ -384,11 +394,8 @@ async def upload_job_description(
 
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Failed to upload job description: "
-                f"{str(error)}"
-            ),
-        )
+            detail="Failed to upload job description.",
+        ) from error
 
     finally:
         await file.close()
@@ -510,14 +517,14 @@ async def upload_round_results(
         raise
 
     except Exception as error:
+        logger.exception(
+            "Unable to parse uploaded round-results file"
+        )
+
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Unable to read the "
-                "Excel file: "
-                f"{str(error)}"
-            ),
-        )
+            detail="Unable to read the uploaded Excel file.",
+        ) from error
 
     if not rows:
         raise HTTPException(
@@ -762,14 +769,14 @@ async def upload_round_results(
 
         db.rollback()
 
+        logger.exception(
+            "Unexpected error while processing round results"
+        )
+
         raise HTTPException(
             status_code=500,
-            detail=(
-                "Failed to process "
-                "round results: "
-                f"{str(error)}"
-            ),
-        )
+            detail="Failed to process round results.",
+        ) from error
 
     return {
         "message": (

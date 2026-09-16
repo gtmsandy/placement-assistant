@@ -4,6 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
+from pydantic import Field
 
 
 class StudentBase(BaseModel):
@@ -19,15 +20,30 @@ class StudentBase(BaseModel):
 
     branch: str
 
-    graduation_year: int
+    graduation_year: int = Field(
+        ge=1900,
+        le=2100,
+    )
 
-    cgpa: float
+    cgpa: float = Field(
+        ge=0,
+        le=10,
+    )
 
-    tenth_percentage: float
+    tenth_percentage: float = Field(
+        ge=0,
+        le=100,
+    )
 
-    twelfth_percentage: float
+    twelfth_percentage: float = Field(
+        ge=0,
+        le=100,
+    )
 
-    active_backlogs: int = 0
+    active_backlogs: int = Field(
+        default=0,
+        ge=0,
+    )
 
     history_of_backlogs: bool = False
 
@@ -69,13 +85,28 @@ class DriveBase(BaseModel):
 
     location: Optional[str] = None
 
-    min_cgpa: float = 0
+    min_cgpa: float = Field(
+        default=0,
+        ge=0,
+        le=10,
+    )
 
-    min_tenth: float = 0
+    min_tenth: float = Field(
+        default=0,
+        ge=0,
+        le=100,
+    )
 
-    min_twelfth: float = 0
+    min_twelfth: float = Field(
+        default=0,
+        ge=0,
+        le=100,
+    )
 
-    max_backlogs: int = 0
+    max_backlogs: int = Field(
+        default=0,
+        ge=0,
+    )
 
     branches: Optional[str] = None
 
@@ -87,7 +118,11 @@ class DriveBase(BaseModel):
         "Non-PwD Only",
     ] = "Any"
 
-    graduation_year: Optional[int] = None
+    graduation_year: Optional[int] = Field(
+        default=None,
+        ge=1900,
+        le=2100,
+    )
 
     resume_shortlisting: bool = False
 
@@ -121,13 +156,28 @@ class DriveUpdate(BaseModel):
 
     location: Optional[str] = None
 
-    min_cgpa: Optional[float] = None
+    min_cgpa: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=10,
+    )
 
-    min_tenth: Optional[float] = None
+    min_tenth: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
 
-    min_twelfth: Optional[float] = None
+    min_twelfth: Optional[float] = Field(
+        default=None,
+        ge=0,
+        le=100,
+    )
 
-    max_backlogs: Optional[int] = None
+    max_backlogs: Optional[int] = Field(
+        default=None,
+        ge=0,
+    )
 
     branches: Optional[str] = None
 
@@ -141,7 +191,11 @@ class DriveUpdate(BaseModel):
         ]
     ] = None
 
-    graduation_year: Optional[int] = None
+    graduation_year: Optional[int] = Field(
+        default=None,
+        ge=1900,
+        le=2100,
+    )
 
     resume_shortlisting: Optional[bool] = None
 
