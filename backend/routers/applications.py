@@ -8,6 +8,7 @@ from application_state import ApplicationTransitionError
 from application_state import initial_application_state
 from application_state import transition_application
 from database import get_db
+from eligibility import check_eligibility
 from models import Application
 from models import PlacementDrive
 from models import Student
@@ -22,69 +23,6 @@ router = APIRouter(
     prefix="/api/applications",
     tags=["Applications"],
 )
-
-
-def check_eligibility(
-    student: Student,
-    drive: PlacementDrive,
-):
-    if student.cgpa < drive.min_cgpa:
-        return False, (
-            f"Minimum CGPA required: "
-            f"{drive.min_cgpa}"
-        )
-
-    if student.tenth_percentage < drive.min_tenth:
-        return False, (
-            f"Minimum 10th percentage required: "
-            f"{drive.min_tenth}"
-        )
-
-    if student.twelfth_percentage < drive.min_twelfth:
-        return False, (
-            f"Minimum 12th percentage required: "
-            f"{drive.min_twelfth}"
-        )
-
-    if student.active_backlogs > drive.max_backlogs:
-        return False, (
-            f"Maximum backlogs allowed: "
-            f"{drive.max_backlogs}"
-        )
-
-    if drive.branches:
-        allowed_branches = [
-            branch.strip().upper()
-            for branch in drive.branches.split(",")
-            if branch.strip()
-        ]
-
-        if student.branch.upper() not in allowed_branches:
-            return False, (
-                "Your branch is not eligible"
-            )
-
-    if (
-        drive.graduation_year
-        and student.graduation_year
-        != drive.graduation_year
-    ):
-        return False, (
-            f"Graduation year must be "
-            f"{drive.graduation_year}"
-        )
-
-    if (
-        drive.gender
-        and drive.gender.lower() != "any"
-        and student.gender.lower()
-        != drive.gender.lower()
-    ):
-        return False, (
-            "Gender eligibility criteria not satisfied"
-        )
-
-    return True, None
 
 
 @router.get(

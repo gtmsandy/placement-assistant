@@ -75,8 +75,8 @@ function mapStudentFromApi(
       student.gender || 'Male',
 
     speciallyAbled:
-      student.specially_abled ||
-      false,
+      student.specially_abled ??
+      null,
 
     tenthPercentage:
       student.tenth_percentage ??

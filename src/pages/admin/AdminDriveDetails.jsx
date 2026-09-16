@@ -847,6 +847,17 @@ function AdminDriveDetails() {
               </p>
             </div>
 
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                PwD Eligibility
+              </p>
+
+              <p className="mt-1 font-semibold text-slate-900">
+                {drive.pwd_eligibility || 'Any'}
+              </p>
+            </div>
+
           </div>
 
         </section>

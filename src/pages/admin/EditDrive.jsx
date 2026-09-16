@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { API_BASE_URL } from '../../services/api'
+import {
+  getDrive,
+  updateDrive,
+  uploadJobDescription,
+} from '../../services/api'
 
 
 function toDateTimeLocal(value) {
@@ -89,6 +93,7 @@ function EditDrive() {
 
       branches: '',
       gender: 'Any',
+      pwd_eligibility: 'Any',
       graduation_year: '',
 
       resume_shortlisting: false,
@@ -115,21 +120,8 @@ function EditDrive() {
           setLoading(true)
           setError('')
 
-          const response =
-            await fetch(
-              `${API_BASE_URL}/api/drives/${id}`
-            )
-
-          if (!response.ok) {
-
-            throw new Error(
-              'Failed to load placement drive.'
-            )
-
-          }
-
           const drive =
-            await response.json()
+            await getDrive(id)
 
 
           setForm({
@@ -172,6 +164,10 @@ function EditDrive() {
 
             gender:
               drive.gender ||
+              'Any',
+
+            pwd_eligibility:
+              drive.pwd_eligibility ||
               'Any',
 
             graduation_year:
@@ -401,6 +397,10 @@ function EditDrive() {
             form.gender ||
             'Any',
 
+          pwd_eligibility:
+            form.pwd_eligibility ||
+            'Any',
+
           graduation_year:
             Number(
               form.graduation_year
@@ -438,94 +438,18 @@ function EditDrive() {
         }
 
 
-        const response =
-          await fetch(
-            `${API_BASE_URL}/api/drives/${id}`,
-            {
-
-              method: 'PATCH',
-
-              headers: {
-                'Content-Type':
-                  'application/json',
-              },
-
-              body:
-                JSON.stringify(
-                  payload
-                ),
-
-            }
-          )
-
-
-        const data =
-          await response.json()
-
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.detail ||
-              'Failed to update placement drive.'
-          )
-
-        }
+        await updateDrive(
+          id,
+          payload
+        )
 
 
         if (selectedFile) {
 
-          const formData =
-            new FormData()
-
-          formData.append(
-            'file',
+          await uploadJobDescription(
+            id,
             selectedFile
           )
-
-
-          const jdResponse =
-            await fetch(
-              `${API_BASE_URL}/api/drives/${id}/jd`,
-              {
-                method: 'POST',
-                body: formData,
-              }
-            )
-
-
-          const jdText =
-            await jdResponse.text()
-
-
-          let jdData = null
-
-
-          try {
-
-            jdData =
-              jdText
-                ? JSON.parse(
-                    jdText
-                  )
-                : null
-
-          } catch {
-
-            jdData =
-              jdText
-
-          }
-
-
-          if (!jdResponse.ok) {
-
-            throw new Error(
-              jdData?.detail ||
-                'Drive updated, but JD upload failed.'
-            )
-
-          }
 
         }
 
@@ -911,6 +835,40 @@ function EditDrive() {
                   }
                   className="mt-2 w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500"
                 />
+
+              </div>
+
+
+              <div>
+
+                <label className="text-sm font-medium text-slate-700">
+                  PwD Eligibility
+                </label>
+
+                <select
+                  name="pwd_eligibility"
+                  value={
+                    form.pwd_eligibility
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 outline-none focus:border-blue-500"
+                >
+
+                  <option value="Any">
+                    Any
+                  </option>
+
+                  <option value="PwD Only">
+                    PwD Only
+                  </option>
+
+                  <option value="Non-PwD Only">
+                    Non-PwD Only
+                  </option>
+
+                </select>
 
               </div>
 

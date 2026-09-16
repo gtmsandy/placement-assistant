@@ -380,6 +380,20 @@ function DrivePreview() {
 
             </div>
 
+
+            <div className="flex justify-between gap-4">
+
+              <span className="text-sm text-slate-600">
+                PwD Eligibility
+              </span>
+
+              <span className="font-semibold text-slate-900">
+                {drive.pwdEligibility ||
+                  'Any'}
+              </span>
+
+            </div>
+
           </div>
 
         </section>

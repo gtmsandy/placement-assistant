@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from typing import Optional
 
 from pydantic import BaseModel
@@ -32,7 +33,7 @@ class StudentBase(BaseModel):
 
     gender: str = "Any"
 
-    specially_abled: bool = False
+    specially_abled: Optional[bool] = False
 
     resume_filename: Optional[str] = None
 
@@ -80,6 +81,12 @@ class DriveBase(BaseModel):
 
     gender: str = "Any"
 
+    pwd_eligibility: Literal[
+        "Any",
+        "PwD Only",
+        "Non-PwD Only",
+    ] = "Any"
+
     graduation_year: Optional[int] = None
 
     resume_shortlisting: bool = False
@@ -125,6 +132,14 @@ class DriveUpdate(BaseModel):
     branches: Optional[str] = None
 
     gender: Optional[str] = None
+
+    pwd_eligibility: Optional[
+        Literal[
+            "Any",
+            "PwD Only",
+            "Non-PwD Only",
+        ]
+    ] = None
 
     graduation_year: Optional[int] = None
 

@@ -194,6 +194,13 @@ class PlacementDrive(Base):
         default="Any"
     )
 
+    pwd_eligibility = Column(
+        String(20),
+        nullable=False,
+        default="Any",
+        server_default="Any",
+    )
+
     graduation_year = Column(
         Integer
     )

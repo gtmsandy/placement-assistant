@@ -22,6 +22,7 @@ function CreateDrive() {
       maxBacklogs: '',
       branches: '',
       gender: 'Any',
+      pwdEligibility: 'Any',
       graduationYear: '2027',
 
       resumeShortlisting: false,
@@ -153,6 +154,8 @@ const drive = {
 
   branches: formData.branches || null,
   gender: formData.gender || 'Any',
+  pwd_eligibility:
+    formData.pwdEligibility || 'Any',
   graduation_year:
     Number(formData.graduationYear) || null,
 
@@ -556,6 +559,40 @@ const drive = {
 
                   <option value="2030">
                     2030
+                  </option>
+
+                </select>
+
+              </div>
+
+
+              <div>
+
+                <label className="text-sm font-medium text-slate-700">
+                  PwD Eligibility
+                </label>
+
+                <select
+                  name="pwdEligibility"
+                  value={
+                    formData.pwdEligibility
+                  }
+                  onChange={
+                    handleChange
+                  }
+                  className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                >
+
+                  <option value="Any">
+                    Any
+                  </option>
+
+                  <option value="PwD Only">
+                    PwD Only
+                  </option>
+
+                  <option value="Non-PwD Only">
+                    Non-PwD Only
                   </option>
 
                 </select>

@@ -51,6 +51,9 @@ function mapDriveFromApi(drive) {
     gender:
       drive.gender || 'Any',
 
+    pwdEligibility:
+      drive.pwd_eligibility || 'Any',
+
     graduationYear:
       drive.graduation_year
         ? String(
@@ -139,6 +142,9 @@ function mapDriveToApi(drive) {
 
     gender:
       drive.gender || 'Any',
+
+    pwd_eligibility:
+      drive.pwdEligibility || 'Any',
 
     graduation_year:
       Number(

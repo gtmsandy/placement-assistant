@@ -135,6 +135,38 @@ export function checkEligibility(student, drive) {
     }
   }
 
+  // PwD eligibility
+  const pwdEligibility =
+    drive.pwdEligibility || 'Any'
+
+  if (pwdEligibility !== 'Any') {
+    const pwdStatus =
+      student.speciallyAbled
+
+    if (
+      pwdStatus !== true &&
+      pwdStatus !== false
+    ) {
+      reasons.push(
+        'PwD status is required to determine eligibility for this drive.'
+      )
+    } else if (
+      pwdEligibility === 'PwD Only' &&
+      pwdStatus !== true
+    ) {
+      reasons.push(
+        'Only PwD candidates are eligible for this drive.'
+      )
+    } else if (
+      pwdEligibility === 'Non-PwD Only' &&
+      pwdStatus !== false
+    ) {
+      reasons.push(
+        'PwD candidates are not eligible for this drive.'
+      )
+    }
+  }
+
   return {
     eligible: reasons.length === 0,
     reasons,
