@@ -5,7 +5,7 @@ import { useStudent } from '../../context/StudentContext'
 import { useApplications } from '../../context/ApplicationContext'
 
 import { checkEligibility } from '../../services/eligibilityService'
-import { API_BASE_URL } from '../../services/api'
+import { viewDriveJobDescription } from '../../services/api'
 
 
 function OpportunityDetails() {
@@ -117,43 +117,28 @@ function OpportunityDetails() {
     }
 
 
-  const getJdUrl =
-    () => {
-
-      if (!drive.jd) {
-        return ''
-      }
-
-      if (
-        drive.jd.startsWith(
-          'http://'
-        ) ||
-        drive.jd.startsWith(
-          'https://'
-        )
-      ) {
-        return drive.jd
-      }
-
-      return `${API_BASE_URL}${drive.jd}`
-    }
-
-
   const handleViewJd =
-    () => {
+    async () => {
 
-      const jdUrl =
-        getJdUrl()
-
-      if (!jdUrl) {
+      if (!drive?.id) {
         return
       }
 
-      window.open(
-        jdUrl,
-        '_blank',
-        'noopener,noreferrer'
-      )
+      try {
+        await viewDriveJobDescription(
+          drive.id
+        )
+      } catch (viewError) {
+        console.error(
+          'Failed to open job description:',
+          viewError
+        )
+
+        alert(
+          viewError.message ||
+            'Unable to open job description.'
+        )
+      }
     }
 
 

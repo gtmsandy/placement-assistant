@@ -1,3 +1,10 @@
+import {
+  validateExcelFile,
+  validateJdFile,
+  validateResumeFile,
+} from './uploadValidation'
+
+
 const configuredApiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.trim()
 
@@ -209,6 +216,60 @@ async function parseResponse(
 }
 
 
+async function openProtectedFile(
+  endpoint
+) {
+  const previewWindow =
+    window.open('', '_blank')
+
+  if (!previewWindow) {
+    throw new Error(
+      'Allow pop-ups to view this file.'
+    )
+  }
+
+  previewWindow.opener = null
+
+  try {
+    const response =
+      await fetch(
+        `${API_BASE_URL}${endpoint}`,
+        {
+          headers:
+            getAuthHeaders(),
+        }
+      )
+
+    if (!response.ok) {
+      await parseResponse(
+        response
+      )
+    }
+
+    const blob =
+      await response.blob()
+    const objectUrl =
+      URL.createObjectURL(blob)
+
+    previewWindow.location.replace(
+      objectUrl
+    )
+
+    window.setTimeout(
+      () => {
+        URL.revokeObjectURL(
+          objectUrl
+        )
+      },
+      60_000
+    )
+  } catch (error) {
+    previewWindow.close()
+    throw error
+  }
+}
+
+
 /* =========================
    AUTHENTICATION
    ========================= */
@@ -386,6 +447,15 @@ export async function uploadResume(
     )
   }
 
+  const validationError =
+    validateResumeFile(file)
+
+  if (validationError) {
+    throw new Error(
+      validationError
+    )
+  }
+
   const formData =
     new FormData()
 
@@ -411,6 +481,21 @@ export async function uploadResume(
 
   return parseResponse(
     response
+  )
+}
+
+
+export async function viewStudentResume(
+  studentId
+) {
+  if (!studentId) {
+    throw new Error(
+      'Student ID is missing.'
+    )
+  }
+
+  return openProtectedFile(
+    `/api/students/${studentId}/resume`
   )
 }
 
@@ -557,16 +642,12 @@ export async function uploadJobDescription(
     )
   }
 
-  const fileName =
-    file.name.toLowerCase()
+  const validationError =
+    validateJdFile(file)
 
-  if (
-    !fileName.endsWith(
-      '.pdf'
-    )
-  ) {
+  if (validationError) {
     throw new Error(
-      'Only PDF files are allowed.'
+      validationError
     )
   }
 
@@ -595,6 +676,21 @@ export async function uploadJobDescription(
 
   return parseResponse(
     response
+  )
+}
+
+
+export async function viewDriveJobDescription(
+  driveId
+) {
+  if (!driveId) {
+    throw new Error(
+      'Drive ID is missing.'
+    )
+  }
+
+  return openProtectedFile(
+    `/api/drives/${driveId}/jd`
   )
 }
 
@@ -683,19 +779,12 @@ export async function uploadRoundResults(
     )
   }
 
-  const fileName =
-    file.name.toLowerCase()
+  const validationError =
+    validateExcelFile(file)
 
-  if (
-    !fileName.endsWith(
-      '.xlsx'
-    ) &&
-    !fileName.endsWith(
-      '.xlsm'
-    )
-  ) {
+  if (validationError) {
     throw new Error(
-      'Only .xlsx and .xlsm Excel files are allowed.'
+      validationError
     )
   }
 

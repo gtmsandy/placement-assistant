@@ -5,6 +5,7 @@ import {
   updateDrive,
   uploadJobDescription,
 } from '../../services/api'
+import { validateJdFile } from '../../services/uploadValidation'
 
 
 function toDateTimeLocal(value) {
@@ -286,13 +287,13 @@ function EditDrive() {
       }
 
 
-      if (
-        file.type !==
-          'application/pdf'
-      ) {
+      const validationError =
+        validateJdFile(file)
+
+      if (validationError) {
 
         setError(
-          'Only PDF files are allowed.'
+          validationError
         )
 
         event.target.value = ''

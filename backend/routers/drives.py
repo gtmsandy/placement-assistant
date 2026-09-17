@@ -1,6 +1,5 @@
 import logging
 import os
-import uuid
 from io import BytesIO
 
 from openpyxl import load_workbook
@@ -11,6 +10,7 @@ from fastapi import File
 from fastapi import Form
 from fastapi import HTTPException
 from fastapi import UploadFile
+from fastapi.responses import FileResponse
 
 from sqlalchemy.orm import Session
 
@@ -30,6 +30,17 @@ from models import User
 from schemas import DriveCreate
 from schemas import DriveResponse
 from schemas import DriveUpdate
+from upload_security import EXCEL_MIME_TYPES
+from upload_security import JD_MIME_TYPES
+from upload_security import MAX_EXCEL_SIZE
+from upload_security import MAX_JD_SIZE
+from upload_security import generate_safe_upload_path
+from upload_security import read_upload_with_limit
+from upload_security import stored_upload_path
+from upload_security import validate_excel_content
+from upload_security import validate_extension_and_mime
+from upload_security import validate_pdf_content
+from upload_security import write_upload_with_limit
 
 from routers.auth import get_current_user
 from routers.auth import require_admin
@@ -296,63 +307,46 @@ async def upload_job_description(
             detail="No file selected",
         )
 
-    original_filename = file.filename
-
-    extension = os.path.splitext(
-        original_filename
-    )[1].lower()
-
-    if extension != ".pdf":
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Only PDF files are allowed"
-            ),
-        )
-
-    unique_name = (
-        f"{uuid.uuid4().hex}.pdf"
-    )
-
-    file_path = os.path.join(
+    destination = None
+    old_jd_path = stored_upload_path(
         UPLOAD_DIR,
-        unique_name,
+        drive.jd,
+        "/uploads/jd",
     )
-
-    old_jd_path = None
-
-    if drive.jd:
-        old_jd_path = (
-            drive.jd
-            .lstrip("/")
-            .replace(
-                "/",
-                os.sep,
-            )
-        )
 
     try:
-        with open(
-            file_path,
-            "wb",
-        ) as buffer:
+        extension = validate_extension_and_mime(
+            file,
+            JD_MIME_TYPES,
+            "Only PDF files are allowed",
+        )
 
-            while True:
-                chunk = await file.read(
-                    1024 * 1024
-                )
+        destination = generate_safe_upload_path(
+            UPLOAD_DIR,
+            extension,
+        )
 
-                if not chunk:
-                    break
+        await write_upload_with_limit(
+            file,
+            destination,
+            MAX_JD_SIZE,
+        )
 
-                buffer.write(chunk)
+        validate_pdf_content(
+            destination
+        )
 
         drive.jd = (
-            f"/uploads/jd/{unique_name}"
+            f"/uploads/jd/{destination.name}"
         )
 
         drive.jd_filename = (
-            original_filename
+            os.path.basename(
+                file.filename.replace(
+                    "\\",
+                    "/",
+                )
+            )
         )
 
         db.commit()
@@ -361,19 +355,35 @@ async def upload_job_description(
 
         if (
             old_jd_path
-            and os.path.exists(
-                old_jd_path
-            )
-            and old_jd_path != file_path
+            and old_jd_path.exists()
+            and old_jd_path != destination
         ):
             try:
-                os.remove(
-                    old_jd_path
-                )
+                old_jd_path.unlink()
             except OSError:
-                pass
+                logger.warning(
+                    "Unable to remove replaced JD file",
+                    exc_info=True,
+                )
 
         return drive
+
+    except HTTPException:
+        db.rollback()
+
+        if (
+            destination
+            and destination.exists()
+        ):
+            try:
+                destination.unlink()
+            except OSError:
+                logger.warning(
+                    "Unable to remove rejected JD upload",
+                    exc_info=True,
+                )
+
+        raise
 
     except Exception as error:
         db.rollback()
@@ -382,15 +392,17 @@ async def upload_job_description(
             "Unexpected error while uploading job description"
         )
 
-        if os.path.exists(
-            file_path
+        if (
+            destination
+            and destination.exists()
         ):
             try:
-                os.remove(
-                    file_path
-                )
+                destination.unlink()
             except OSError:
-                pass
+                logger.warning(
+                    "Unable to remove failed JD upload",
+                    exc_info=True,
+                )
 
         raise HTTPException(
             status_code=500,
@@ -399,6 +411,82 @@ async def upload_job_description(
 
     finally:
         await file.close()
+
+
+@router.get(
+    "/{drive_id}/jd",
+)
+def download_job_description(
+    drive_id: int,
+    current_user: User = Depends(
+        get_current_user
+    ),
+    db: Session = Depends(get_db),
+):
+    drive = (
+        db.query(PlacementDrive)
+        .filter(
+            PlacementDrive.id == drive_id
+        )
+        .first()
+    )
+
+    if not drive:
+        raise HTTPException(
+            status_code=404,
+            detail="Placement drive not found",
+        )
+
+    user_role = current_user.role.lower()
+
+    if (
+        user_role == "student"
+        and drive.status != "Published"
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Placement drive not found",
+        )
+
+    if user_role not in {
+        "admin",
+        "student",
+    }:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "You are not authorized to "
+                "access job descriptions"
+            ),
+        )
+
+    jd_path = stored_upload_path(
+        UPLOAD_DIR,
+        drive.jd,
+        "/uploads/jd",
+    )
+
+    if (
+        not jd_path
+        or not jd_path.is_file()
+    ):
+        raise HTTPException(
+            status_code=404,
+            detail="Job description not found",
+        )
+
+    download_name = os.path.basename(
+        (
+            drive.jd_filename
+            or jd_path.name
+        ).replace("\\", "/")
+    )
+
+    return FileResponse(
+        path=jd_path,
+        media_type="application/pdf",
+        filename=download_name,
+    )
 
 
 @router.post(
@@ -469,24 +557,20 @@ async def upload_round_results(
             detail="No file selected",
         )
 
-    extension = os.path.splitext(
-        file.filename
-    )[1].lower()
-
-    if extension not in {
-        ".xlsx",
-        ".xlsm",
-    }:
-        raise HTTPException(
-            status_code=400,
-            detail=(
+    try:
+        validate_extension_and_mime(
+            file,
+            EXCEL_MIME_TYPES,
+            (
                 "Only .xlsx and .xlsm "
                 "Excel files are allowed"
             ),
         )
 
-    try:
-        contents = await file.read()
+        contents = await read_upload_with_limit(
+            file,
+            MAX_EXCEL_SIZE,
+        )
 
         if not contents:
             raise HTTPException(
@@ -496,6 +580,10 @@ async def upload_round_results(
                     "file is empty"
                 ),
             )
+
+        validate_excel_content(
+            contents
+        )
 
         workbook = load_workbook(
             filename=BytesIO(contents),
@@ -525,6 +613,9 @@ async def upload_round_results(
             status_code=400,
             detail="Unable to read the uploaded Excel file.",
         ) from error
+
+    finally:
+        await file.close()
 
     if not rows:
         raise HTTPException(

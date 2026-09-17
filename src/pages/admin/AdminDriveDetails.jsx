@@ -12,8 +12,9 @@ import {
   getDrive,
   withdrawDrive,
   uploadRoundResults,
-  API_BASE_URL,
+  viewDriveJobDescription,
 } from '../../services/api'
+import { validateExcelFile } from '../../services/uploadValidation'
 
 
 function AdminDriveDetails() {
@@ -252,49 +253,28 @@ function AdminDriveDetails() {
     }
 
 
-  const getJdUrl =
-    () => {
-
-      if (!drive?.jd) {
-        return ''
-      }
-
-
-      if (
-        drive.jd.startsWith(
-          'http://'
-        ) ||
-        drive.jd.startsWith(
-          'https://'
-        )
-      ) {
-        return drive.jd
-      }
-
-
-      return (
-        `${API_BASE_URL}${drive.jd}`
-      )
-    }
-
-
   const handleViewJd =
-    () => {
+    async () => {
 
-      const jdUrl =
-        getJdUrl()
-
-
-      if (!jdUrl) {
+      if (!drive?.id) {
         return
       }
 
+      try {
+        await viewDriveJobDescription(
+          drive.id
+        )
+      } catch (viewError) {
+        console.error(
+          'Failed to open job description:',
+          viewError
+        )
 
-      window.open(
-        jdUrl,
-        '_blank',
-        'noopener,noreferrer'
-      )
+        setError(
+          viewError.message ||
+            'Unable to open job description.'
+        )
+      }
     }
 
 
@@ -319,20 +299,10 @@ function AdminDriveDetails() {
       }
 
 
-      const fileName =
-        file.name.toLowerCase()
+      const validationError =
+        validateExcelFile(file)
 
-
-      const validFile =
-        fileName.endsWith(
-          '.xlsx'
-        ) ||
-        fileName.endsWith(
-          '.xlsm'
-        )
-
-
-      if (!validFile) {
+      if (validationError) {
 
         setRoundFile(
           null
@@ -343,7 +313,7 @@ function AdminDriveDetails() {
 
 
         setError(
-          'Please select an Excel file (.xlsx or .xlsm).'
+          validationError
         )
 
         return

@@ -11,7 +11,8 @@ import {
 import {
   useStudent,
 } from '../../context/StudentContext'
-import { API_BASE_URL } from '../../services/api'
+import { viewStudentResume } from '../../services/api'
+import { validateResumeFile } from '../../services/uploadValidation'
 
 
 function StudentProfile() {
@@ -108,37 +109,13 @@ function StudentProfile() {
       }
 
 
-      const allowedTypes = [
+      const validationError =
+        validateResumeFile(file)
 
-        'application/pdf',
-
-        'application/msword',
-
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-
-      ]
-
-
-      const extension =
-        file.name
-          .split('.')
-          .pop()
-          ?.toLowerCase()
-
-
-      if (
-        !allowedTypes.includes(
-          file.type
-        ) &&
-        ![
-          'pdf',
-          'doc',
-          'docx',
-        ].includes(extension)
-      ) {
+      if (validationError) {
 
         alert(
-          'Please select a PDF, DOC, or DOCX file.'
+          validationError
         )
 
 
@@ -152,6 +129,26 @@ function StudentProfile() {
       setSelectedResume(
         file
       )
+    }
+
+
+  const handleViewResume =
+    async () => {
+      try {
+        await viewStudentResume(
+          student.id
+        )
+      } catch (viewError) {
+        console.error(
+          'Failed to open resume:',
+          viewError
+        )
+
+        alert(
+          viewError.message ||
+            'Unable to open resume.'
+        )
+      }
     }
 
 
@@ -819,14 +816,15 @@ function StudentProfile() {
 
                 {formData.resumeUrl && (
 
-                  <a
-                    href={`${API_BASE_URL}${formData.resumeUrl}`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    type="button"
+                    onClick={
+                      handleViewResume
+                    }
                     className="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700"
                   >
                     View
-                  </a>
+                  </button>
 
                 )}
 

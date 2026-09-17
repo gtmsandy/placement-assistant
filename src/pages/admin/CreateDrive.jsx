@@ -5,6 +5,7 @@ import {
   createDrive,
   uploadJobDescription,
 } from '../../services/api'
+import { validateJdFile } from '../../services/uploadValidation'
 
 function CreateDrive() {
   const navigate = useNavigate()
@@ -87,12 +88,12 @@ function CreateDrive() {
       return
     }
 
-    if (
-      file.type !==
-      'application/pdf'
-    ) {
+    const validationError =
+      validateJdFile(file)
+
+    if (validationError) {
       setError(
-        'Only PDF files are allowed for the Job Description.'
+        validationError
       )
 
       event.target.value = ''
@@ -125,13 +126,16 @@ function CreateDrive() {
 
     setError('')
 
-    if (
-      formData.jd &&
-      formData.jd.type !==
-        'application/pdf'
-    ) {
+    const jdValidationError =
+      formData.jd
+        ? validateJdFile(
+            formData.jd
+          )
+        : ''
+
+    if (jdValidationError) {
       setError(
-        'Only PDF files are allowed for the Job Description.'
+        jdValidationError
       )
 
       return
