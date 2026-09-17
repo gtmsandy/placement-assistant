@@ -1,5 +1,7 @@
 # LEARNING NOTES — Campus Placement Assistant
 
+> **Historical reference:** These notes describe an earlier SQLite/public-upload version and are retained only for learning history. Use the repository root `README.md` and `docs/PROJECT_GUIDE.md` for the completed V1 architecture and security model.
+
 This file is for studying the project rather than merely using it.
 
 ---

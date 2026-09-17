@@ -1,5 +1,7 @@
 # FILE MAP — Campus Placement Assistant
 
+> **Historical reference:** This map describes an earlier project state and is not authoritative for the completed V1. Use the project structure in the repository root `README.md` and `docs/PROJECT_GUIDE.md` for current modules.
+
 This is the current known repository map.
 
 > Always compare this document against the actual repository after major changes.

@@ -1,5 +1,7 @@
 # ARCHITECTURE — Campus Placement Assistant
 
+> **Historical reference:** This document describes an earlier SQLite/public-upload architecture and is not authoritative for the completed V1. Use the repository root `README.md` and `docs/PROJECT_GUIDE.md` for the current PostgreSQL, Alembic, protected-file, and password-recovery architecture.
+
 ## 1. System Overview
 
 The application is a local full-stack placement management system.

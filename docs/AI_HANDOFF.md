@@ -1,5 +1,7 @@
 # AI HANDOFF — Campus Placement Assistant
 
+> **Historical reference:** This document describes an earlier SQLite/public-upload version and is not authoritative for the completed V1. Use the repository root `README.md` and `docs/PROJECT_GUIDE.md` for the current PostgreSQL, Alembic, protected-file, authentication, and port-8001 architecture.
+
 ## 1. Purpose
 
 This document is the starting point for any AI assistant that will maintain, debug, extend, or explain this project.

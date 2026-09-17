@@ -1,5 +1,7 @@
 # DATA FLOW — Campus Placement Assistant
 
+> **Historical reference:** This document describes an earlier SQLite/public-upload data flow and is not authoritative for the completed V1. Use the repository root `README.md` and `docs/PROJECT_GUIDE.md` for current protected API and PostgreSQL flows.
+
 This file describes the actual flow of important operations through the project.
 
 ---

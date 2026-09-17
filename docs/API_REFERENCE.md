@@ -1,5 +1,7 @@
 # API REFERENCE — Campus Placement Assistant
 
+> **Historical reference:** Endpoint examples below describe an earlier port-8000/public-upload version and are not authoritative for the completed V1. Use FastAPI `/docs` on port 8001 plus the repository root `README.md` and `docs/PROJECT_GUIDE.md` for current behavior.
+
 Base API:
 
 ```text
