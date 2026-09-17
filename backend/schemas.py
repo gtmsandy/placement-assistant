@@ -5,6 +5,9 @@ from typing import Optional
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import field_validator
+
+from auth_identifiers import normalize_optional_mobile
 
 
 class StudentBase(BaseModel):
@@ -55,6 +58,19 @@ class StudentBase(BaseModel):
 
     resume_url: Optional[str] = None
 
+    @field_validator(
+        "mobile",
+        mode="before",
+    )
+    @classmethod
+    def normalize_mobile(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        return normalize_optional_mobile(
+            value
+        )
+
 
 class StudentCreate(StudentBase):
     pass
@@ -66,6 +82,19 @@ class StudentProfileUpdate(BaseModel):
     mobile: Optional[str] = None
 
     personal_email: Optional[str] = None
+
+    @field_validator(
+        "mobile",
+        mode="before",
+    )
+    @classmethod
+    def normalize_mobile(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        return normalize_optional_mobile(
+            value
+        )
 
 
 class StudentResponse(StudentBase):

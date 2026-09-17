@@ -19,12 +19,18 @@ from jose import jwt
 
 from pydantic import BaseModel
 
+from sqlalchemy import func
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from auth_identifiers import InvalidIdentifier
+from auth_identifiers import NormalizedIdentifier
+from auth_identifiers import normalize_identifier
 from database import get_db
 from models import Student
 from models import User
+from password_recovery import GENERIC_RECOVERY_MESSAGE
+from password_recovery import prepare_password_recovery
 
 
 router = APIRouter(
@@ -44,6 +50,9 @@ if not SECRET_KEY:
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 TOKEN_TYPE = "access"
+INVALID_LOGIN_DETAIL = (
+    "Invalid username/email/mobile or password."
+)
 
 
 security = HTTPBearer(
@@ -55,6 +64,14 @@ class LoginRequest(BaseModel):
     identifier: str
     password: str
     role: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    identifier: str
+
+
+class ForgotPasswordResponse(BaseModel):
+    message: str
 
 
 class UserResponse(BaseModel):
@@ -105,6 +122,78 @@ def verify_password(
         return False
 
 
+DUMMY_PASSWORD_HASH = hash_password(
+    "authentication-placeholder"
+)
+
+
+def resolve_user(
+    db: Session,
+    identifier: NormalizedIdentifier,
+    *,
+    role: str | None = None,
+) -> User | None:
+    query = (
+        db.query(User)
+        .outerjoin(
+            Student,
+            User.student_id == Student.id,
+        )
+    )
+
+    if role is not None:
+        query = query.filter(
+            func.lower(User.role) == role
+        )
+
+    if identifier.kind == "mobile":
+        query = query.filter(
+            Student.mobile == identifier.value
+        )
+    elif (
+        identifier.kind == "email"
+        and role == "student"
+    ):
+        query = query.filter(
+            func.lower(Student.email)
+            == identifier.value
+        )
+    elif (
+        identifier.kind == "email"
+        and role is None
+    ):
+        query = query.filter(
+            or_(
+                func.lower(User.username)
+                == identifier.value,
+                func.lower(Student.email)
+                == identifier.value,
+            )
+        )
+    else:
+        query = query.filter(
+            func.lower(User.username)
+            == identifier.value
+        )
+
+    matches = query.limit(2).all()
+
+    if len(matches) != 1:
+        return None
+
+    return matches[0]
+
+
+def invalid_login_error() -> HTTPException:
+    return HTTPException(
+        status_code=401,
+        detail=INVALID_LOGIN_DETAIL,
+        headers={
+            "WWW-Authenticate": "Bearer"
+        },
+    )
+
+
 def create_access_token(
     user_id: int,
     role: str,
@@ -141,65 +230,44 @@ def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db),
 ):
-    identifier = (
-        login_data.identifier
-        .strip()
-        .lower()
-    )
-
     requested_role = (
         login_data.role
         .strip()
         .lower()
     )
 
-    user = (
-        db.query(User)
-        .outerjoin(
-            Student,
-            User.student_id == Student.id
-        )
-        .filter(
-            or_(
-                User.username == identifier,
-                Student.email == identifier
+    user = None
+
+    if requested_role in {
+        "admin",
+        "student",
+    }:
+        try:
+            identifier = normalize_identifier(
+                login_data.identifier,
+                role=requested_role,
             )
-        )
-        .first()
-    )
+        except InvalidIdentifier:
+            identifier = None
 
-    if not user:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid username/email or password",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
-        )
+        if identifier is not None:
+            user = resolve_user(
+                db,
+                identifier,
+                role=requested_role,
+            )
 
-    if not verify_password(
+    password_matches = verify_password(
         login_data.password,
-        user.password_hash,
-    ):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid username/email or password",
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
+        (
+            user.password_hash
+            if user is not None
+            else DUMMY_PASSWORD_HASH
         )
-
-    actual_role = (
-        user.role
-        .strip()
-        .lower()
     )
 
-    if requested_role != actual_role:
-        raise HTTPException(
-            status_code=403,
-            detail=f"This account is registered as {user.role}",
-        )
+    if user is None or not password_matches:
+        raise invalid_login_error()
 
     access_token = create_access_token(
         user.id,
@@ -210,6 +278,36 @@ def login(
         "access_token": access_token,
         "token_type": "bearer",
         "user": user,
+    }
+
+
+@router.post(
+    "/forgot-password",
+    response_model=ForgotPasswordResponse,
+)
+def forgot_password(
+    request: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    user = None
+
+    try:
+        identifier = normalize_identifier(
+            request.identifier
+        )
+    except InvalidIdentifier:
+        identifier = None
+
+    if identifier is not None:
+        user = resolve_user(
+            db,
+            identifier,
+        )
+
+    prepare_password_recovery(user)
+
+    return {
+        "message": GENERIC_RECOVERY_MESSAGE,
     }
 
 

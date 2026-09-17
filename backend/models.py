@@ -17,6 +17,13 @@ from database import Base
 class Student(Base):
     __tablename__ = "students"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "mobile",
+            name="uq_students_mobile",
+        ),
+    )
+
     id = Column(
         Integer,
         primary_key=True,
