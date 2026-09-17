@@ -85,6 +85,31 @@ function validateIdentifier(
 }
 
 
+function validateRecoveryEmail(
+  value
+) {
+  const normalized =
+    value.trim().toLowerCase()
+
+  if (!normalized) {
+    return 'Please enter your NITR college email.'
+  }
+
+  if (
+    !/^[^\s@]+@[^\s@]+$/.test(
+      normalized
+    ) ||
+    !normalized.endsWith(
+      '@nitrkl.ac.in'
+    )
+  ) {
+    return 'Use your NITR college email address.'
+  }
+
+  return ''
+}
+
+
 function Login() {
 
   const navigate =
@@ -334,9 +359,8 @@ function Login() {
       setRecoveryMessage('')
 
       const identifierError =
-        validateIdentifier(
-          recoveryIdentifier,
-          role
+        validateRecoveryEmail(
+          recoveryIdentifier
         )
 
       if (identifierError) {
@@ -363,7 +387,7 @@ function Login() {
         setRecoveryStep('otp')
         setRecoveryMessage(
           response?.message ||
-          'If an account matches that identifier, recovery instructions have been sent.'
+          'If an account matches that email address, recovery instructions have been sent.'
         )
       } catch (error) {
         console.error(
@@ -659,7 +683,7 @@ function Login() {
 
             <p className="mt-1 text-sm text-gray-500">
               {recoveryStep === 'identifier' &&
-                'Enter your college email or registered mobile number.'}
+                'Enter your institutional NITR college email.'}
               {recoveryStep === 'otp' &&
                 'Enter the 6-digit recovery code.'}
               {recoveryStep === 'password' &&
@@ -671,7 +695,7 @@ function Login() {
             {recoveryStep === 'identifier' && (
               <>
                 <label className="mt-4 block text-sm font-medium text-gray-700">
-                  College email / registered mobile
+                  NITR college email
                 </label>
                 <input
                   type="text"
@@ -682,6 +706,7 @@ function Login() {
                     )
                   }
                   autoComplete="username"
+                  inputMode="email"
                   className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </>

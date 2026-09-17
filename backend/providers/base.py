@@ -18,18 +18,3 @@ class OtpDeliveryProvider(Protocol):
         idempotency_key: str,
     ) -> DeliveryResult:
         ...
-
-
-class DisabledOtpProvider:
-    def send_otp(
-        self,
-        *,
-        destination: str,
-        code: str,
-        purpose: str,
-        expires_in_seconds: int,
-        idempotency_key: str,
-    ) -> DeliveryResult:
-        return DeliveryResult(
-            accepted=False
-        )

@@ -15,14 +15,14 @@ from sqlalchemy.orm import Session
 from auth_identifiers import InvalidIdentifier, normalize_identifier
 from models import OtpChallenge, Student, User
 from password_security import hash_password, validate_new_password, verify_password
-from providers.base import DisabledOtpProvider, OtpDeliveryProvider
+from providers.base import OtpDeliveryProvider
 
 
 logger = logging.getLogger(__name__)
 
 PURPOSE = "password_recovery"
 GENERIC_RECOVERY_MESSAGE = (
-    "If an account matches that identifier, recovery instructions have been sent."
+    "If an account matches that email address, recovery instructions have been sent."
 )
 INVALID_CODE_MESSAGE = "Invalid or expired code."
 OTP_DIGITS = 6
@@ -119,12 +119,12 @@ class PasswordRecoveryService:
         self,
         db: Session,
         recovery_secrets: RecoverySecrets,
-        provider: OtpDeliveryProvider | None = None,
+        provider: OtpDeliveryProvider,
         now_factory: Callable[[], datetime] = _utc_now,
     ):
         self.db = db
         self.recovery_secrets = recovery_secrets
-        self.provider = provider or DisabledOtpProvider()
+        self.provider = provider
         self.now_factory = now_factory
 
     def _fingerprint(self, identifier: str) -> str:
@@ -151,17 +151,12 @@ class PasswordRecoveryService:
         except InvalidIdentifier:
             normalized = None
 
-        if normalized is None or normalized.kind not in {"email", "mobile"}:
+        if normalized is None or normalized.kind != "email":
             canonical = raw_identifier.strip().lower() or "invalid"
             return self._fingerprint(canonical), "unknown", None, None, "none"
 
         query = self.db.query(User).join(Student, User.student_id == Student.id)
-        if normalized.kind == "email":
-            query = query.filter(func.lower(Student.email) == normalized.value)
-            channel = "email"
-        else:
-            query = query.filter(Student.mobile == normalized.value)
-            channel = "sms"
+        query = query.filter(func.lower(Student.email) == normalized.value)
 
         matches = query.filter(func.lower(User.role) == "student").limit(2).all()
         user = matches[0] if len(matches) == 1 else None
@@ -171,7 +166,7 @@ class PasswordRecoveryService:
             normalized.kind,
             user,
             destination,
-            channel if user is not None else "none",
+            "email" if user is not None else "none",
         )
 
     def _deliver(
@@ -195,7 +190,11 @@ class PasswordRecoveryService:
             )
             challenge.delivery_status = "sent" if result.accepted else "failed"
         except Exception:
-            logger.exception("Password recovery OTP delivery failed")
+            logger.warning(
+                "Password recovery email delivery failed; challenge_id=%s provider=%s",
+                challenge.id,
+                type(self.provider).__name__,
+            )
             challenge.delivery_status = "failed"
         self.db.commit()
 
@@ -280,9 +279,9 @@ class PasswordRecoveryService:
                 .filter(User.id == challenge.user_id)
                 .first()
             )
-            if row is not None:
+            if row is not None and challenge.identifier_kind == "email":
                 _, student = row
-                destination = student.email if challenge.identifier_kind == "email" else student.mobile
+                destination = student.email
 
         code = _generate_otp()
         challenge.otp_digest = self._otp_digest(challenge.id, code)

@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -220,13 +221,21 @@ class PasswordRecoveryTests(unittest.TestCase):
         self.assertIsNone(challenge.user_id)
         self.assertEqual(challenge.delivery_status, "suppressed")
 
-    def test_mobile_request_uses_normalized_destination(self):
-        self.service.request("+91 98765-43210")
-        self.assertEqual(self.provider.deliveries[-1].destination, "9876543210")
+    def test_mobile_recovery_is_suppressed_without_delivery(self):
+        result = self.service.request("+91 98765-43210")
+        challenge = self.db.get(OtpChallenge, result.challenge_id)
+        self.assertIsNone(challenge.user_id)
+        self.assertEqual(challenge.identifier_kind, "unknown")
+        self.assertEqual(challenge.channel, "none")
+        self.assertEqual(challenge.delivery_status, "suppressed")
+        self.assertEqual(self.provider.deliveries, [])
 
     def test_fake_provider_success_is_recorded(self):
         result, _ = self.request()
-        self.assertEqual(self.db.get(OtpChallenge, result.challenge_id).delivery_status, "sent")
+        challenge = self.db.get(OtpChallenge, result.challenge_id)
+        self.assertEqual(challenge.identifier_kind, "email")
+        self.assertEqual(challenge.channel, "email")
+        self.assertEqual(challenge.delivery_status, "sent")
         self.assertEqual(len(self.provider.deliveries), 1)
 
     def test_fake_provider_failure_is_safely_recorded(self):
@@ -236,8 +245,10 @@ class PasswordRecoveryTests(unittest.TestCase):
 
     def test_provider_exception_is_sanitized(self):
         self.service.provider = FakeOtpProvider(exception=RuntimeError("provider credential detail"))
-        result = self.service.request("recovery@nitrkl.ac.in")
+        with self.assertLogs("password_recovery", level="WARNING") as captured:
+            result = self.service.request("recovery@nitrkl.ac.in")
         self.assertEqual(self.db.get(OtpChallenge, result.challenge_id).delivery_status, "failed")
+        self.assertNotIn("provider credential detail", " ".join(captured.output))
 
     def test_expired_reset_authorization_is_rejected(self):
         _, token = self.verified_token()
@@ -313,11 +324,25 @@ class PasswordRecoveryTests(unittest.TestCase):
 
     def test_reset_invalidates_other_active_recovery_challenges(self):
         email_result, email_code = self.request()
-        mobile_result = self.service.request("9876543210")
+        now = self.clock()
+        other_challenge = OtpChallenge(
+            id=uuid.uuid4(),
+            user_id=self.user.id,
+            identifier_fingerprint="f" * 64,
+            identifier_kind="email",
+            purpose="password_recovery",
+            channel="email",
+            otp_digest="d" * 64,
+            created_at=now,
+            expires_at=now + timedelta(minutes=10),
+            last_sent_at=now,
+            delivery_status="sent",
+        )
+        self.db.add(other_challenge)
+        self.db.commit()
         token = self.service.verify(email_result.challenge_id, email_code).reset_token
         self.service.reset_password(token, NEW_PASSWORD)
-        mobile_challenge = self.db.get(OtpChallenge, mobile_result.challenge_id)
-        self.assertIsNotNone(mobile_challenge.invalidated_at)
+        self.assertIsNotNone(self.db.get(OtpChallenge, other_challenge.id).invalidated_at)
 
     def test_student_email_and_mobile_login_regression(self):
         for identifier in ("recovery@nitrkl.ac.in", "+919876543210"):

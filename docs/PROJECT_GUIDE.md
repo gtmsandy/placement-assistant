@@ -210,7 +210,7 @@ Files are returned through authenticated API endpoints after role, ownership, an
 The student flow is:
 
 ```text
-Email/mobile identifier
+Institutional NITR email
   → 6-digit OTP challenge
   → OTP verification
   → short-lived password-reset JWT
@@ -236,7 +236,9 @@ Security controls include:
 - current-password rejection and 12-character/72-byte password limits;
 - `auth_version` increment after reset, invalidating older access tokens.
 
-OTP/password recovery infrastructure is implemented and tested using a provider abstraction. Real email delivery requires provider configuration. The included fake provider is for automated testing; SMS is not implemented.
+Password recovery is email-only. OTP/password recovery infrastructure is implemented and tested using a provider abstraction. Resend is the real email provider and requires environment configuration. The included fake provider is for automated testing; SMS OTP is not part of V1.
+
+The provider integration is verified with mocked HTTP tests. Live Resend delivery remains unverified until credentials and an explicitly authorized recipient are available.
 
 ## 13. Major Challenges
 
@@ -331,6 +333,10 @@ JWT_SECRET_KEY
 OTP_HASH_SECRET
 IDENTIFIER_HASH_SECRET
 PASSWORD_RESET_SECRET
+EMAIL_PROVIDER
+RESEND_API_KEY
+EMAIL_FROM_ADDRESS
+EMAIL_FROM_NAME
 ```
 
 Frontend environment variable:

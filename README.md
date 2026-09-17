@@ -43,7 +43,7 @@ The application is designed around two roles:
 - Eligibility result and rejection-reason display
 - One application per student and placement drive
 - Application status and recruitment-stage tracking
-- Password-recovery flow for student email/mobile identifiers
+- Password recovery by OTP sent to the student's institutional NITR email
 
 ### Admin Features
 
@@ -126,9 +126,11 @@ The backend is authoritative and returns a controlled reason when a criterion fa
 
 Students can authenticate with their NITR college email, registered Indian mobile number, or username. Administrators authenticate with their configured username. Successful login returns a role-bearing access JWT, and protected routes verify both the token and current user role.
 
-Password recovery supports 6-digit OTP challenges, secure HMAC digests, expiry, attempt and resend controls, a short-lived reset JWT, one-time reset authorization, bcrypt password replacement, and invalidation of older access tokens through `auth_version`.
+Password recovery is email-only and supports 6-digit OTP challenges sent to the student's institutional NITR email, secure HMAC digests, expiry, attempt and resend controls, a short-lived reset JWT, one-time reset authorization, bcrypt password replacement, and invalidation of older access tokens through `auth_version`. SMS OTP is not part of V1.
 
-**OTP/password recovery infrastructure is implemented and tested using a provider abstraction. Real email delivery requires provider configuration.** The repository includes a fake provider for automated tests; it does not claim that production email or SMS delivery is enabled.
+**OTP/password recovery infrastructure is implemented and tested using a provider abstraction. Real email delivery uses Resend and requires provider configuration.** The repository includes a fake provider for automated tests. SMS OTP is not part of V1.
+
+The Resend integration is covered by mocked automated tests. Live delivery has not been verified because real provider credentials are not configured in this repository.
 
 ## Project Structure
 
@@ -213,6 +215,10 @@ JWT_SECRET_KEY=replace_with_a_long_random_secret
 OTP_HASH_SECRET=replace_with_a_different_long_random_secret
 IDENTIFIER_HASH_SECRET=replace_with_another_long_random_secret
 PASSWORD_RESET_SECRET=replace_with_a_separate_long_random_secret
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=replace_with_resend_api_key
+EMAIL_FROM_ADDRESS=no-reply@example.com
+EMAIL_FROM_NAME=Placement Assistant
 ```
 
 Frontend (project-root `.env`):

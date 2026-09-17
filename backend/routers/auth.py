@@ -39,7 +39,8 @@ from password_recovery import RecoveryConfigurationError
 from password_recovery import RecoveryRateLimitError
 from password_recovery import RecoverySecrets
 from password_recovery import ResetAuthorizationError
-from providers.base import DisabledOtpProvider
+from providers.factory import ProviderConfigurationError
+from providers.factory import create_otp_provider
 
 
 router = APIRouter(
@@ -303,7 +304,8 @@ def get_password_recovery_service(
 ) -> PasswordRecoveryService:
     try:
         recovery_secrets = RecoverySecrets.from_environment()
-    except RecoveryConfigurationError as error:
+        provider = create_otp_provider()
+    except (RecoveryConfigurationError, ProviderConfigurationError) as error:
         raise HTTPException(
             status_code=503,
             detail="Password recovery is temporarily unavailable.",
@@ -311,7 +313,7 @@ def get_password_recovery_service(
     return PasswordRecoveryService(
         db,
         recovery_secrets,
-        DisabledOtpProvider(),
+        provider,
     )
 
 
