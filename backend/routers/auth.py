@@ -6,8 +6,6 @@ load_dotenv()
 
 from datetime import datetime, timedelta, timezone
 
-import bcrypt
-
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -18,6 +16,7 @@ from jose import JWTError
 from jose import jwt
 
 from pydantic import BaseModel
+from pydantic import Field
 
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -29,8 +28,18 @@ from auth_identifiers import normalize_identifier
 from database import get_db
 from models import Student
 from models import User
+from password_security import hash_password
+from password_security import verify_password
 from password_recovery import GENERIC_RECOVERY_MESSAGE
-from password_recovery import prepare_password_recovery
+from password_recovery import INVALID_CODE_MESSAGE
+from password_recovery import PasswordPolicyError
+from password_recovery import PasswordRecoveryService
+from password_recovery import RecoveryCodeError
+from password_recovery import RecoveryConfigurationError
+from password_recovery import RecoveryRateLimitError
+from password_recovery import RecoverySecrets
+from password_recovery import ResetAuthorizationError
+from providers.base import DisabledOtpProvider
 
 
 router = APIRouter(
@@ -74,6 +83,30 @@ class ForgotPasswordResponse(BaseModel):
     message: str
 
 
+class PasswordRecoveryResponse(BaseModel):
+    message: str
+    challenge_id: str
+    retry_after_seconds: int
+
+
+class PasswordRecoveryResendRequest(BaseModel):
+    challenge_id: str
+
+
+class PasswordRecoveryVerifyRequest(BaseModel):
+    challenge_id: str
+    otp: str = Field(min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+
+
+class PasswordRecoveryVerifyResponse(BaseModel):
+    reset_token: str
+    expires_in_seconds: int
+
+
+class PasswordResetRequest(BaseModel):
+    new_password: str
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
@@ -88,38 +121,6 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str
     user: UserResponse
-
-
-def hash_password(password: str):
-    password_bytes = password.encode("utf-8")
-
-    if len(password_bytes) > 72:
-        raise ValueError(
-            "Password cannot exceed 72 bytes"
-        )
-
-    return bcrypt.hashpw(
-        password_bytes,
-        bcrypt.gensalt()
-    ).decode("utf-8")
-
-
-def verify_password(
-    plain_password: str,
-    hashed_password: str,
-):
-    password_bytes = plain_password.encode("utf-8")
-
-    if len(password_bytes) > 72:
-        return False
-
-    try:
-        return bcrypt.checkpw(
-            password_bytes,
-            hashed_password.encode("utf-8")
-        )
-    except (ValueError, TypeError):
-        return False
 
 
 DUMMY_PASSWORD_HASH = hash_password(
@@ -197,6 +198,7 @@ def invalid_login_error() -> HTTPException:
 def create_access_token(
     user_id: int,
     role: str,
+    auth_version: int = 0,
 ):
     now = datetime.now(timezone.utc)
 
@@ -211,6 +213,7 @@ def create_access_token(
         "sub": str(user_id),
         "role": role,
         "type": TOKEN_TYPE,
+        "auth_version": auth_version,
         "iat": now,
         "exp": expire,
     }
@@ -272,6 +275,7 @@ def login(
     access_token = create_access_token(
         user.id,
         user.role,
+        user.auth_version or 0,
     )
 
     return {
@@ -289,26 +293,119 @@ def forgot_password(
     request: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
-    user = None
-
-    try:
-        identifier = normalize_identifier(
-            request.identifier
-        )
-    except InvalidIdentifier:
-        identifier = None
-
-    if identifier is not None:
-        user = resolve_user(
-            db,
-            identifier,
-        )
-
-    prepare_password_recovery(user)
-
     return {
         "message": GENERIC_RECOVERY_MESSAGE,
     }
+
+
+def get_password_recovery_service(
+    db: Session = Depends(get_db),
+) -> PasswordRecoveryService:
+    try:
+        recovery_secrets = RecoverySecrets.from_environment()
+    except RecoveryConfigurationError as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Password recovery is temporarily unavailable.",
+        ) from error
+    return PasswordRecoveryService(
+        db,
+        recovery_secrets,
+        DisabledOtpProvider(),
+    )
+
+
+def _parse_challenge_id(value: str):
+    import uuid
+
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError, AttributeError) as error:
+        raise HTTPException(status_code=400, detail=INVALID_CODE_MESSAGE) from error
+
+
+@router.post(
+    "/password-recovery/request",
+    response_model=PasswordRecoveryResponse,
+    status_code=202,
+)
+def request_password_recovery(
+    request: ForgotPasswordRequest,
+    service: PasswordRecoveryService = Depends(get_password_recovery_service),
+):
+    try:
+        result = service.request(request.identifier)
+    except RecoveryRateLimitError as error:
+        raise HTTPException(
+            status_code=429,
+            detail=str(error),
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
+    return {
+        "message": result.message,
+        "challenge_id": str(result.challenge_id),
+        "retry_after_seconds": result.retry_after_seconds,
+    }
+
+
+@router.post(
+    "/password-recovery/resend",
+    response_model=PasswordRecoveryResponse,
+)
+def resend_password_recovery(
+    request: PasswordRecoveryResendRequest,
+    service: PasswordRecoveryService = Depends(get_password_recovery_service),
+):
+    try:
+        result = service.resend(_parse_challenge_id(request.challenge_id))
+    except RecoveryRateLimitError as error:
+        raise HTTPException(
+            status_code=429,
+            detail=str(error),
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
+    except RecoveryCodeError as error:
+        raise HTTPException(status_code=400, detail=INVALID_CODE_MESSAGE) from error
+    return {
+        "message": result.message,
+        "challenge_id": str(result.challenge_id),
+        "retry_after_seconds": result.retry_after_seconds,
+    }
+
+
+@router.post(
+    "/password-recovery/verify",
+    response_model=PasswordRecoveryVerifyResponse,
+)
+def verify_password_recovery(
+    request: PasswordRecoveryVerifyRequest,
+    service: PasswordRecoveryService = Depends(get_password_recovery_service),
+):
+    try:
+        result = service.verify(
+            _parse_challenge_id(request.challenge_id),
+            request.otp,
+        )
+    except RecoveryCodeError as error:
+        raise HTTPException(status_code=400, detail=INVALID_CODE_MESSAGE) from error
+    return result
+
+
+@router.post("/password-reset")
+def reset_password(
+    request: PasswordResetRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    service: PasswordRecoveryService = Depends(get_password_recovery_service),
+):
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid or expired reset authorization.")
+    try:
+        service.reset_password(credentials.credentials, request.new_password)
+    except ResetAuthorizationError as error:
+        raise HTTPException(status_code=401, detail="Invalid or expired reset authorization.") from error
+    except PasswordPolicyError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {"message": "Password reset successfully."}
 
 
 def get_current_user(
@@ -349,6 +446,7 @@ def get_current_user(
             raise credentials_exception
 
         user_id = payload.get("sub")
+        token_auth_version = payload.get("auth_version", 0)
 
         if user_id is None:
             raise credentials_exception
@@ -370,6 +468,9 @@ def get_current_user(
     )
 
     if user is None:
+        raise credentials_exception
+
+    if token_auth_version != (user.auth_version or 0):
         raise credentials_exception
 
     return user

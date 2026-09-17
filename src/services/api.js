@@ -207,9 +207,19 @@ async function parseResponse(
       }
     }
 
-    throw new Error(
-      message
-    )
+    const error =
+      new Error(message)
+
+    error.status =
+      response.status
+    error.retryAfter =
+      Number(
+        response.headers.get(
+          'retry-after'
+        )
+      ) || null
+
+    throw error
   }
 
   return data
@@ -339,7 +349,7 @@ export async function requestPasswordRecovery(
 ) {
   const response =
     await fetch(
-      `${API_BASE_URL}/api/auth/forgot-password`,
+      `${API_BASE_URL}/api/auth/password-recovery/request`,
       {
         method:
           'POST',
@@ -360,6 +370,80 @@ export async function requestPasswordRecovery(
   return parseResponse(
     response
   )
+}
+
+
+export async function resendPasswordRecovery(
+  challengeId
+) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/password-recovery/resend`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+        body: JSON.stringify({
+          challenge_id:
+            challengeId,
+        }),
+      }
+    )
+
+  return parseResponse(response)
+}
+
+
+export async function verifyPasswordRecovery(
+  challengeId,
+  otp
+) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/password-recovery/verify`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+        body: JSON.stringify({
+          challenge_id:
+            challengeId,
+          otp,
+        }),
+      }
+    )
+
+  return parseResponse(response)
+}
+
+
+export async function resetRecoveredPassword(
+  resetToken,
+  newPassword
+) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/password-reset`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+          Authorization:
+            `Bearer ${resetToken}`,
+        },
+        body: JSON.stringify({
+          new_password:
+            newPassword,
+        }),
+      }
+    )
+
+  return parseResponse(response)
 }
 
 

@@ -1,6 +1,9 @@
+import uuid
 from datetime import datetime
+from datetime import timezone
 
 from sqlalchemy import Boolean
+from sqlalchemy import CheckConstraint
 from sqlalchemy import Column
 from sqlalchemy import DateTime
 from sqlalchemy import Float
@@ -10,6 +13,8 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
+from sqlalchemy import Uuid
+from sqlalchemy import text as sql_text
 
 from database import Base
 
@@ -114,6 +119,13 @@ class Student(Base):
 class User(Base):
     __tablename__ = "users"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "student_id",
+            name="uq_users_student_id",
+        ),
+    )
+
     id = Column(
         Integer,
         primary_key=True,
@@ -142,6 +154,180 @@ class User(Base):
         Integer,
         ForeignKey("students.id"),
         nullable=True
+    )
+
+    auth_version = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    password_changed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+
+class OtpChallenge(Base):
+    __tablename__ = "otp_challenges"
+
+    __table_args__ = (
+        CheckConstraint(
+            "purpose = 'password_recovery'",
+            name="ck_otp_challenges_purpose",
+        ),
+        CheckConstraint(
+            "identifier_kind IN ('email', 'mobile', 'unknown')",
+            name="ck_otp_challenges_identifier_kind",
+        ),
+        CheckConstraint(
+            "channel IN ('email', 'sms', 'none')",
+            name="ck_otp_challenges_channel",
+        ),
+        CheckConstraint(
+            "attempts >= 0",
+            name="ck_otp_challenges_attempts_nonnegative",
+        ),
+        CheckConstraint(
+            "resend_count >= 0",
+            name="ck_otp_challenges_resend_count_nonnegative",
+        ),
+        CheckConstraint(
+            "delivery_status IN ('pending', 'sent', 'suppressed', 'failed')",
+            name="ck_otp_challenges_delivery_status",
+        ),
+        Index(
+            "ix_otp_challenges_identifier_purpose_created",
+            "identifier_fingerprint",
+            "purpose",
+            "created_at",
+        ),
+        Index(
+            "ix_otp_challenges_user_purpose_created",
+            "user_id",
+            "purpose",
+            "created_at",
+        ),
+        Index(
+            "ix_otp_challenges_expires_at",
+            "expires_at",
+        ),
+        Index(
+            "uq_otp_challenges_active_identifier_purpose",
+            "identifier_fingerprint",
+            "purpose",
+            unique=True,
+            postgresql_where=sql_text(
+                "consumed_at IS NULL AND invalidated_at IS NULL"
+            ),
+            sqlite_where=sql_text(
+                "consumed_at IS NULL AND invalidated_at IS NULL"
+            ),
+        ),
+    )
+
+    id = Column(
+        Uuid(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+
+    user_id = Column(
+        Integer,
+        ForeignKey(
+            "users.id",
+            name="fk_otp_challenges_user_id_users",
+            ondelete="CASCADE",
+        ),
+        nullable=True,
+    )
+
+    identifier_fingerprint = Column(
+        String(64),
+        nullable=False,
+    )
+
+    identifier_kind = Column(
+        String(20),
+        nullable=False,
+    )
+
+    purpose = Column(
+        String(40),
+        nullable=False,
+    )
+
+    channel = Column(
+        String(20),
+        nullable=False,
+    )
+
+    otp_digest = Column(
+        String(64),
+        nullable=False,
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    expires_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    last_sent_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    attempts = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    resend_count = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    verified_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    consumed_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    invalidated_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    reset_jti_digest = Column(
+        String(64),
+        nullable=True,
+    )
+
+    reset_authorized_until = Column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    delivery_status = Column(
+        String(20),
+        nullable=False,
+        default="pending",
+        server_default="pending",
     )
 
 
