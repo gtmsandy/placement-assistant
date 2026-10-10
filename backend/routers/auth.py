@@ -16,7 +16,9 @@ from jose import JWTError
 from jose import jwt
 
 from pydantic import BaseModel
+from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import field_validator
 
 from sqlalchemy import func
 from sqlalchemy import or_
@@ -25,6 +27,7 @@ from sqlalchemy.orm import Session
 from auth_identifiers import InvalidIdentifier
 from auth_identifiers import NormalizedIdentifier
 from auth_identifiers import normalize_identifier
+from auth_identifiers import normalize_optional_mobile
 from database import get_db
 from models import Student
 from models import User
@@ -41,6 +44,13 @@ from password_recovery import RecoverySecrets
 from password_recovery import ResetAuthorizationError
 from providers.factory import ProviderConfigurationError
 from providers.factory import create_otp_provider
+from student_registration import RegistrationAuthorizationError
+from student_registration import RegistrationCodeError
+from student_registration import RegistrationConflictError
+from student_registration import RegistrationDetails
+from student_registration import RegistrationRateLimitError
+from student_registration import RegistrationValidationError
+from student_registration import StudentRegistrationService
 
 
 router = APIRouter(
@@ -106,6 +116,58 @@ class PasswordRecoveryVerifyResponse(BaseModel):
 
 class PasswordResetRequest(BaseModel):
     new_password: str
+
+
+class RegistrationEmailRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=100)
+
+
+class RegistrationChallengeRequest(BaseModel):
+    challenge_id: str
+
+
+class RegistrationVerifyRequest(RegistrationChallengeRequest):
+    otp: str = Field(min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+
+
+class RegistrationCompleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=100)
+    roll_no: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=12, max_length=72)
+    mobile: str | None = None
+    branch: str = Field(min_length=1, max_length=50)
+    graduation_year: int = Field(ge=1900, le=2100)
+    cgpa: float = Field(ge=0, le=10)
+    tenth_percentage: float = Field(ge=0, le=100)
+    twelfth_percentage: float = Field(ge=0, le=100)
+    active_backlogs: int = Field(ge=0)
+    history_of_backlogs: bool
+    gender: str = Field(min_length=1, max_length=20)
+    specially_abled: bool
+
+    @field_validator("mobile", mode="before")
+    @classmethod
+    def normalize_mobile(cls, value):
+        return normalize_optional_mobile(value)
+
+
+class RegistrationChallengeResponse(BaseModel):
+    message: str
+    challenge_id: str
+    retry_after_seconds: int
+
+
+class RegistrationVerifyResponse(BaseModel):
+    registration_token: str
+    expires_in_seconds: int
+
+
+class RegistrationCompleteResponse(BaseModel):
+    message: str
+    student_id: int
+    user_id: int
 
 
 class UserResponse(BaseModel):
@@ -317,6 +379,20 @@ def get_password_recovery_service(
     )
 
 
+def get_student_registration_service(
+    db: Session = Depends(get_db),
+) -> StudentRegistrationService:
+    try:
+        secrets = RecoverySecrets.from_environment()
+        provider = create_otp_provider()
+    except (RecoveryConfigurationError, ProviderConfigurationError) as error:
+        raise HTTPException(
+            status_code=503,
+            detail="Student registration is temporarily unavailable.",
+        ) from error
+    return StudentRegistrationService(db, secrets, provider)
+
+
 def _parse_challenge_id(value: str):
     import uuid
 
@@ -324,6 +400,121 @@ def _parse_challenge_id(value: str):
         return uuid.UUID(value)
     except (ValueError, TypeError, AttributeError) as error:
         raise HTTPException(status_code=400, detail=INVALID_CODE_MESSAGE) from error
+
+
+def _parse_registration_challenge_id(value: str):
+    import uuid
+
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError, AttributeError) as error:
+        raise HTTPException(status_code=400, detail="Invalid or expired code.") from error
+
+
+@router.post(
+    "/register/request",
+    response_model=RegistrationChallengeResponse,
+    status_code=202,
+)
+def request_student_registration(
+    request: RegistrationEmailRequest,
+    service: StudentRegistrationService = Depends(get_student_registration_service),
+):
+    try:
+        result = service.request(request.email)
+    except RegistrationValidationError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except RegistrationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except RegistrationRateLimitError as error:
+        raise HTTPException(
+            status_code=429,
+            detail=str(error),
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
+    return {
+        "message": result.message,
+        "challenge_id": str(result.challenge_id),
+        "retry_after_seconds": result.retry_after_seconds,
+    }
+
+
+@router.post(
+    "/register/resend",
+    response_model=RegistrationChallengeResponse,
+)
+def resend_student_registration(
+    request: RegistrationChallengeRequest,
+    service: StudentRegistrationService = Depends(get_student_registration_service),
+):
+    try:
+        result = service.resend(
+            _parse_registration_challenge_id(request.challenge_id)
+        )
+    except RegistrationRateLimitError as error:
+        raise HTTPException(
+            status_code=429,
+            detail=str(error),
+            headers={"Retry-After": str(error.retry_after)},
+        ) from error
+    except RegistrationCodeError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    return {
+        "message": result.message,
+        "challenge_id": str(result.challenge_id),
+        "retry_after_seconds": result.retry_after_seconds,
+    }
+
+
+@router.post(
+    "/register/verify",
+    response_model=RegistrationVerifyResponse,
+)
+def verify_student_registration(
+    request: RegistrationVerifyRequest,
+    service: StudentRegistrationService = Depends(get_student_registration_service),
+):
+    try:
+        return service.verify(
+            _parse_registration_challenge_id(request.challenge_id),
+            request.otp,
+        )
+    except RegistrationCodeError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@router.post(
+    "/register/complete",
+    response_model=RegistrationCompleteResponse,
+    status_code=201,
+)
+def complete_student_registration(
+    request: RegistrationCompleteRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    service: StudentRegistrationService = Depends(get_student_registration_service),
+):
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired registration authorization.",
+        )
+    details = RegistrationDetails(**request.model_dump())
+    try:
+        user = service.complete(credentials.credentials, details)
+    except RegistrationAuthorizationError as error:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired registration authorization.",
+        ) from error
+    except RegistrationConflictError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except RegistrationValidationError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return {
+        "message": "Student account created successfully.",
+        "student_id": user.student_id,
+        "user_id": user.id,
+    }
 
 
 @router.post(

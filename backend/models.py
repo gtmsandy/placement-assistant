@@ -27,6 +27,11 @@ class Student(Base):
             "mobile",
             name="uq_students_mobile",
         ),
+        Index(
+            "uq_students_email_lower",
+            sql_text("lower(email)"),
+            unique=True,
+        ),
     )
 
     id = Column(
@@ -44,6 +49,11 @@ class Student(Base):
         String(150),
         unique=True,
         nullable=False
+    )
+
+    email_verified_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     roll_no = Column(
@@ -174,7 +184,7 @@ class OtpChallenge(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "purpose = 'password_recovery'",
+            "purpose IN ('password_recovery', 'student_registration')",
             name="ck_otp_challenges_purpose",
         ),
         CheckConstraint(
@@ -240,6 +250,11 @@ class OtpChallenge(Base):
             name="fk_otp_challenges_user_id_users",
             ondelete="CASCADE",
         ),
+        nullable=True,
+    )
+
+    registration_email = Column(
+        String(150),
         nullable=True,
     )
 

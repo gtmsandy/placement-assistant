@@ -354,7 +354,7 @@ class AuthenticationFoundationTests(
             401,
         )
 
-    def test_student_username_login_remains_supported(
+    def test_student_username_login_is_rejected(
         self,
     ):
         response = self.login(
@@ -363,7 +363,7 @@ class AuthenticationFoundationTests(
 
         self.assertEqual(
             response.status_code,
-            200,
+            401,
         )
 
     def test_logged_in_token_still_supports_me(

@@ -19,6 +19,8 @@ def create_otp_provider() -> OtpDeliveryProvider:
         api_key = os.getenv("RESEND_API_KEY", "").strip()
         from_address = os.getenv("EMAIL_FROM_ADDRESS", "").strip()
         from_name = os.getenv("EMAIL_FROM_NAME", "Placement Assistant").strip()
+        app_env = os.getenv("APP_ENV", "production")
+        test_recipient = os.getenv("EMAIL_TEST_RECIPIENT")
 
         if not api_key or not from_address:
             raise ProviderConfigurationError(
@@ -29,6 +31,8 @@ def create_otp_provider() -> OtpDeliveryProvider:
             api_key=api_key,
             from_address=from_address,
             from_name=from_name or "Placement Assistant",
+            app_env=app_env,
+            test_recipient=test_recipient,
         )
 
     if not provider_name:

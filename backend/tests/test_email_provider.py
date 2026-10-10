@@ -26,13 +26,15 @@ class FakeHttpResponse:
 
 
 class ResendEmailProviderTests(unittest.TestCase):
-    def provider(self):
-        return ResendEmailProvider(
-            api_key="test-resend-key",
-            from_address="no-reply@example.com",
-            from_name="Placement Assistant",
-            timeout_seconds=7,
-        )
+    def provider(self, **overrides):
+        values = {
+            "api_key": "test-resend-key",
+            "from_address": "no-reply@example.com",
+            "from_name": "Placement Assistant",
+            "timeout_seconds": 7,
+        }
+        values.update(overrides)
+        return ResendEmailProvider(**values)
 
     @patch("providers.email.urlopen")
     def test_resend_request_is_constructed_correctly(self, mocked_urlopen):
@@ -59,6 +61,62 @@ class ResendEmailProviderTests(unittest.TestCase):
         self.assertIn("10 minutes", payload["text"])
         self.assertNotIn("reset_token", json.dumps(payload))
 
+    @patch("providers.email.urlopen")
+    def test_development_without_override_uses_original_recipient(self, mocked_urlopen):
+        mocked_urlopen.return_value = FakeHttpResponse()
+        self.provider(app_env="development").send_otp(
+            destination="student@nitrkl.ac.in",
+            code="123456",
+            purpose="password_recovery",
+            expires_in_seconds=600,
+            idempotency_key="challenge-id",
+        )
+
+        request = mocked_urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(payload["to"], ["student@nitrkl.ac.in"])
+
+    @patch("providers.email.urlopen")
+    def test_registration_email_uses_registration_copy(self, mocked_urlopen):
+        mocked_urlopen.return_value = FakeHttpResponse()
+        self.provider().send_otp(
+            destination="student@nitrkl.ac.in",
+            code="123456",
+            purpose="student_registration",
+            expires_in_seconds=600,
+            idempotency_key="registration-challenge",
+        )
+
+        request = mocked_urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(
+            payload["subject"],
+            "Placement Assistant - Verify Your College Email",
+        )
+        self.assertIn("registration", payload["text"].lower())
+        self.assertNotIn("password reset", payload["text"].lower())
+
+    @patch("providers.email.urlopen")
+    def test_production_ignores_test_recipient(self, mocked_urlopen):
+        mocked_urlopen.return_value = FakeHttpResponse()
+        with self.assertLogs("providers.email", level="WARNING") as captured:
+            provider = self.provider(
+                app_env="production",
+                test_recipient="delivery-override@gmail.com",
+            )
+        provider.send_otp(
+            destination="student@nitrkl.ac.in",
+            code="123456",
+            purpose="password_recovery",
+            expires_in_seconds=600,
+            idempotency_key="challenge-id",
+        )
+
+        request = mocked_urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(payload["to"], ["student@nitrkl.ac.in"])
+        self.assertNotIn("delivery-override", " ".join(captured.output))
+
     @patch("providers.email.urlopen", side_effect=TimeoutError("network timeout detail"))
     def test_timeout_is_sanitized(self, _mocked_urlopen):
         with self.assertRaisesRegex(EmailDeliveryError, "Email delivery request failed") as captured:
@@ -82,11 +140,14 @@ class ResendEmailProviderTests(unittest.TestCase):
             "RESEND_API_KEY": "environment-test-key",
             "EMAIL_FROM_ADDRESS": "no-reply@example.com",
             "EMAIL_FROM_NAME": "Placement Assistant",
+            "APP_ENV": "development",
+            "EMAIL_TEST_RECIPIENT": "delivery-override@gmail.com",
         }
         with patch.dict(os.environ, values, clear=False):
             provider = create_otp_provider()
         self.assertIsInstance(provider, ResendEmailProvider)
         self.assertEqual(provider.from_address, "no-reply@example.com")
+        self.assertEqual(provider.test_recipient, "delivery-override@gmail.com")
 
     def test_unsupported_provider_fails_closed(self):
         with patch.dict(os.environ, {"EMAIL_PROVIDER": "unsupported"}, clear=False):

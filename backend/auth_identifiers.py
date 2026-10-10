@@ -108,6 +108,11 @@ def normalize_identifier(
             ),
         )
 
+    if role == "student":
+        raise InvalidIdentifier(
+            "Students must use a college email or mobile number"
+        )
+
     if not _USERNAME_PATTERN.fullmatch(
         normalized
     ):

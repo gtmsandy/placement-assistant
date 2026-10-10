@@ -1,4 +1,5 @@
 import json
+import logging
 from html import escape
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -8,6 +9,8 @@ from providers.base import DeliveryResult
 
 RESEND_EMAIL_ENDPOINT = "https://api.resend.com/emails"
 DEFAULT_TIMEOUT_SECONDS = 10.0
+
+logger = logging.getLogger(__name__)
 
 
 class EmailDeliveryError(RuntimeError):
@@ -22,6 +25,8 @@ class ResendEmailProvider:
         from_address: str,
         from_name: str = "Placement Assistant",
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        app_env: str = "production",
+        test_recipient: str | None = None,
     ):
         if not api_key or not api_key.strip():
             raise ValueError("Resend API key is required.")
@@ -34,10 +39,22 @@ class ResendEmailProvider:
         if timeout_seconds <= 0:
             raise ValueError("Email request timeout must be positive.")
 
+        normalized_env = app_env.strip().lower()
+        normalized_test_recipient = (test_recipient or "").strip()
+        if "\r" in normalized_test_recipient or "\n" in normalized_test_recipient:
+            raise ValueError("Email test recipient is invalid.")
+        if normalized_test_recipient and normalized_env != "development":
+            logger.warning(
+                "EMAIL_TEST_RECIPIENT is ignored outside development."
+            )
+
         self.api_key = api_key.strip()
         self.from_address = from_address.strip()
         self.from_name = from_name.strip() or "Placement Assistant"
         self.timeout_seconds = timeout_seconds
+        self.test_recipient = (
+            normalized_test_recipient if normalized_env == "development" else None
+        )
 
     def send_otp(
         self,
@@ -49,24 +66,37 @@ class ResendEmailProvider:
         idempotency_key: str,
     ) -> DeliveryResult:
         expiry_minutes = max(1, expires_in_seconds // 60)
-        subject = "Placement Assistant - Password Reset Code"
+        if purpose == "student_registration":
+            subject = "Placement Assistant - Verify Your College Email"
+            instruction = (
+                "Use the following one-time code to verify your college email "
+                "for Placement Assistant registration"
+            )
+            ignore_message = "If you did not request registration, ignore this email."
+        elif purpose == "password_recovery":
+            subject = "Placement Assistant - Password Reset Code"
+            instruction = (
+                "Use the following one-time code to reset your Placement "
+                "Assistant password"
+            )
+            ignore_message = "If you did not request a password reset, ignore this email."
+        else:
+            raise ValueError("Unsupported OTP email purpose.")
+
         text_body = (
-            "Use the following one-time code to reset your Placement Assistant "
-            f"password: {code}\n\n"
-            f"This code expires in {expiry_minutes} minutes. "
-            "If you did not request a password reset, ignore this email."
+            f"{instruction}: {code}\n\n"
+            f"This code expires in {expiry_minutes} minutes. {ignore_message}"
         )
         html_body = (
-            "<p>Use the following one-time code to reset your Placement "
-            "Assistant password:</p>"
+            f"<p>{escape(instruction)}:</p>"
             f"<p><strong style=\"font-size: 24px; letter-spacing: 4px\">"
             f"{escape(code)}</strong></p>"
             f"<p>This code expires in {expiry_minutes} minutes.</p>"
-            "<p>If you did not request a password reset, ignore this email.</p>"
+            f"<p>{escape(ignore_message)}</p>"
         )
         payload = {
             "from": f"{self.from_name} <{self.from_address}>",
-            "to": [destination],
+            "to": [self.test_recipient or destination],
             "subject": subject,
             "text": text_body,
             "html": html_body,

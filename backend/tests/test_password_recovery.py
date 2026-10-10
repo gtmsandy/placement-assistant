@@ -1,9 +1,11 @@
+import json
 import os
 import sys
 import unittest
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -34,6 +36,7 @@ from password_recovery import (  # noqa: E402
 )
 from password_security import hash_password, verify_password  # noqa: E402
 from providers.fake import FakeOtpProvider  # noqa: E402
+from providers.factory import create_otp_provider  # noqa: E402
 from routers.auth import (  # noqa: E402
     LoginRequest,
     create_access_token,
@@ -220,6 +223,63 @@ class PasswordRecoveryTests(unittest.TestCase):
         challenge = self.db.get(OtpChallenge, result.challenge_id)
         self.assertIsNone(challenge.user_id)
         self.assertEqual(challenge.delivery_status, "suppressed")
+
+    @patch("providers.email.urlopen")
+    def test_development_override_delivers_known_account_to_test_recipient(
+        self, mocked_urlopen
+    ):
+        mocked_urlopen.return_value.__enter__.return_value.status = 202
+        values = {
+            "EMAIL_PROVIDER": "resend",
+            "RESEND_API_KEY": "environment-test-key",
+            "EMAIL_FROM_ADDRESS": "no-reply@example.com",
+            "EMAIL_FROM_NAME": "Placement Assistant",
+            "APP_ENV": "development",
+            "EMAIL_TEST_RECIPIENT": "delivery-override@gmail.com",
+        }
+        with patch.dict(os.environ, values, clear=False):
+            self.service.provider = create_otp_provider()
+            self.service.request("recovery@nitrkl.ac.in")
+
+        request = mocked_urlopen.call_args.args[0]
+        payload = json.loads(request.data.decode("utf-8"))
+        self.assertEqual(payload["to"], ["delivery-override@gmail.com"])
+
+    @patch("providers.email.urlopen")
+    def test_unknown_account_never_sends_with_development_override(
+        self, mocked_urlopen
+    ):
+        values = {
+            "EMAIL_PROVIDER": "resend",
+            "RESEND_API_KEY": "environment-test-key",
+            "EMAIL_FROM_ADDRESS": "no-reply@example.com",
+            "APP_ENV": "development",
+            "EMAIL_TEST_RECIPIENT": "delivery-override@gmail.com",
+        }
+        with patch.dict(os.environ, values, clear=False):
+            self.service.provider = create_otp_provider()
+            result = self.service.request("unknown@nitrkl.ac.in")
+
+        challenge = self.db.get(OtpChallenge, result.challenge_id)
+        self.assertEqual(challenge.delivery_status, "suppressed")
+        mocked_urlopen.assert_not_called()
+
+    def test_gmail_override_is_not_a_recovery_identifier(self):
+        result = self.service.request("delivery-override@gmail.com")
+        challenge = self.db.get(OtpChallenge, result.challenge_id)
+        self.assertEqual(challenge.delivery_status, "suppressed")
+        self.assertEqual(self.provider.deliveries, [])
+
+    def test_gmail_override_is_not_a_student_login_identifier(self):
+        with self.assertRaises(HTTPException):
+            login(
+                LoginRequest(
+                    identifier="delivery-override@gmail.com",
+                    password=ORIGINAL_PASSWORD,
+                    role="student",
+                ),
+                self.db,
+            )
 
     def test_mobile_recovery_is_suppressed_without_delivery(self):
         result = self.service.request("+91 98765-43210")

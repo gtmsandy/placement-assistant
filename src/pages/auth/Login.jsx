@@ -14,6 +14,7 @@ import {
   resetRecoveredPassword,
   verifyPasswordRecovery,
 } from '../../services/api'
+import StudentRegistration from './StudentRegistration'
 
 
 const indianMobilePattern =
@@ -31,7 +32,9 @@ function validateIdentifier(
     value.trim()
 
   if (!normalized) {
-    return 'Please enter your college email, mobile number, or username.'
+    return role === 'student'
+      ? 'Please enter your college email or mobile number.'
+      : 'Please enter your admin username or email.'
   }
 
   if (normalized.includes('@')) {
@@ -56,6 +59,9 @@ function validateIdentifier(
   }
 
   if (/^[+0-9\s-]+$/.test(normalized)) {
+    if (role !== 'student') {
+      return 'Please enter your admin username or email.'
+    }
     const compact =
       normalized.replace(
         /[\s-]/g,
@@ -71,6 +77,10 @@ function validateIdentifier(
     }
 
     return ''
+  }
+
+  if (role === 'student') {
+    return 'Use your NITR college email or registered Indian mobile number.'
   }
 
   if (
@@ -155,6 +165,12 @@ function Login() {
   const [
     showRecovery,
     setShowRecovery,
+  ] = useState(false)
+
+
+  const [
+    showRegistration,
+    setShowRegistration,
   ] = useState(false)
 
 
@@ -534,7 +550,9 @@ function Login() {
         >
 
           <label className="block text-sm font-medium text-gray-700">
-            College email / mobile / username
+            {role === 'student'
+              ? 'College email / mobile'
+              : 'Username / email'}
           </label>
 
           <input
@@ -545,7 +563,11 @@ function Login() {
                 event.target.value
               )
             }
-            placeholder="College email, mobile, or username"
+            placeholder={
+              role === 'student'
+                ? 'College email or mobile'
+                : 'Username or email'
+            }
             autoComplete="username"
             className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
@@ -601,6 +623,7 @@ function Login() {
               if (showRecovery) {
                 clearRecovery()
               }
+              setShowRegistration(false)
               setShowRecovery(!showRecovery)
               setRecoveryIdentifier(
                 identifier.trim()
@@ -620,11 +643,10 @@ function Login() {
 
           <select
             value={role}
-            onChange={(event) =>
-              setRole(
-                event.target.value
-              )
-            }
+            onChange={(event) => {
+              setRole(event.target.value)
+              setShowRegistration(false)
+            }}
             className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           >
 
@@ -661,10 +683,36 @@ function Login() {
 
           </button>
 
+          {role === 'student' && (
+            <button
+              type="button"
+              onClick={() => {
+                clearRecovery()
+                setShowRecovery(false)
+                setShowRegistration(true)
+              }}
+              className="mt-3 w-full text-sm font-medium text-blue-600 hover:text-blue-700"
+            >
+              Create account
+            </button>
+          )}
+
         </form>
 
 
-        {showRecovery && (
+        {showRegistration && (
+          <StudentRegistration
+            onCancel={() =>
+              setShowRegistration(false)
+            }
+            onComplete={() =>
+              setShowRegistration(false)
+            }
+          />
+        )}
+
+
+        {showRecovery && !showRegistration && (
           <form
             className="mt-6 border-t border-gray-200 pt-6"
             onSubmit={

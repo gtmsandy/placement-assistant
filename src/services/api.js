@@ -447,6 +447,99 @@ export async function resetRecoveredPassword(
 }
 
 
+export async function requestStudentRegistration(
+  email
+) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/register/request`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+        }),
+      }
+    )
+
+  return parseResponse(response)
+}
+
+
+export async function resendStudentRegistration(
+  challengeId
+) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/register/resend`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+        body: JSON.stringify({
+          challenge_id:
+            challengeId,
+        }),
+      }
+    )
+
+  return parseResponse(response)
+}
+
+
+export async function verifyStudentRegistration(
+  challengeId,
+  otp
+) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/register/verify`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+        body: JSON.stringify({
+          challenge_id:
+            challengeId,
+          otp,
+        }),
+      }
+    )
+
+  return parseResponse(response)
+}
+
+
+export async function completeStudentRegistration(
+  registrationToken,
+  details
+) {
+  const response =
+    await fetch(
+      `${API_BASE_URL}/api/auth/register/complete`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+          Authorization:
+            `Bearer ${registrationToken}`,
+        },
+        body: JSON.stringify(details),
+      }
+    )
+
+  return parseResponse(response)
+}
+
+
 export async function getMe() {
   const response =
     await fetch(
