@@ -11,6 +11,16 @@ let sessionUser = null
 let csrfToken = null
 
 
+if (typeof window !== 'undefined') {
+  try {
+    window.localStorage.removeItem('access_token')
+    window.localStorage.removeItem('user')
+  } catch {
+    // Keep cookie authentication usable when browser storage is unavailable.
+  }
+}
+
+
 export function getAuthHeaders(
   additionalHeaders = {}
 ) {
