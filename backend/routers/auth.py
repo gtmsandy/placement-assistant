@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Request
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security import HTTPBearer
 
@@ -31,6 +32,7 @@ from auth_identifiers import normalize_optional_mobile
 from database import get_db
 from models import Student
 from models import User
+from login_rate_limiter import login_rate_limiter
 from password_security import hash_password
 from password_security import verify_password
 from password_recovery import GENERIC_RECOVERY_MESSAGE
@@ -295,12 +297,31 @@ def create_access_token(
 def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
     requested_role = (
         login_data.role
         .strip()
         .lower()
     )
+
+    client_host = (
+        request.client.host
+        if request is not None and request.client is not None
+        else "direct"
+    )
+    limiter_key = login_rate_limiter.key(
+        client_host,
+        requested_role,
+        login_data.identifier,
+    )
+    retry_after = login_rate_limiter.retry_after(limiter_key)
+    if retry_after:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
 
     user = None
 
@@ -333,7 +354,10 @@ def login(
     )
 
     if user is None or not password_matches:
+        login_rate_limiter.record_failure(limiter_key)
         raise invalid_login_error()
+
+    login_rate_limiter.clear(limiter_key)
 
     access_token = create_access_token(
         user.id,

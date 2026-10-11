@@ -5,6 +5,8 @@ from io import BytesIO
 from pathlib import Path
 
 from fastapi import HTTPException
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 
 MEBIBYTE = 1024 * 1024
@@ -50,6 +52,19 @@ ZIP_SIGNATURES = (
     b"PK\x05\x06",
     b"PK\x07\x08",
 )
+
+
+def _is_structurally_valid_pdf(path):
+    try:
+        reader = PdfReader(path, strict=True)
+        # Force parsing of the page tree; PdfReader construction alone is lazy.
+        len(reader.pages)
+        return True
+    except (OSError, PdfReadError, ValueError, TypeError):
+        return False
+    except Exception:
+        # Parser internals must never escape the upload boundary.
+        return False
 
 
 def normalized_extension(filename):
@@ -273,8 +288,9 @@ def validate_resume_content(
     valid = False
 
     if extension == ".pdf":
-        valid = signature.startswith(
-            PDF_SIGNATURE
+        valid = (
+            signature.startswith(PDF_SIGNATURE)
+            and _is_structurally_valid_pdf(path)
         )
     elif extension == ".doc":
         valid = signature.startswith(
@@ -305,8 +321,9 @@ def validate_pdf_content(path):
     with path.open("rb") as source:
         signature = source.read(4)
 
-    if not signature.startswith(
-        PDF_SIGNATURE
+    if (
+        not signature.startswith(PDF_SIGNATURE)
+        or not _is_structurally_valid_pdf(path)
     ):
         raise HTTPException(
             status_code=400,

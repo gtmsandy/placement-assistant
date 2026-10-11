@@ -10,3 +10,4 @@ openpyxl
 psycopg2-binary
 alembic
 resend==2.48.0
+pypdf==6.11.0

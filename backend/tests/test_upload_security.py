@@ -9,6 +9,7 @@ from pathlib import Path
 from fastapi import HTTPException
 from fastapi import UploadFile
 from openpyxl import Workbook
+from pypdf import PdfWriter
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -35,7 +36,17 @@ from upload_security import MAX_JD_SIZE  # noqa: E402
 from upload_security import MAX_RESUME_SIZE  # noqa: E402
 
 
-PDF_BYTES = b"%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
+def pdf_bytes(metadata=None):
+    stream = io.BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    if metadata:
+        writer.add_metadata(metadata)
+    writer.write(stream)
+    return stream.getvalue()
+
+
+PDF_BYTES = pdf_bytes()
 PDF_MIME = "application/pdf"
 XLSX_MIME = (
     "application/vnd.openxmlformats-officedocument."
@@ -344,6 +355,25 @@ class UploadSecurityTests(unittest.TestCase):
                 contents=b"not pdf"
             ),
         )
+
+    def test_pdf_magic_followed_by_garbage_is_rejected(self):
+        self.assert_http_status(
+            400,
+            lambda: self.upload_resume(contents=b"%PDF garbage"),
+        )
+
+    def test_truncated_pdf_is_rejected_and_removed(self):
+        self.assert_http_status(
+            400,
+            lambda: self.upload_resume(contents=PDF_BYTES[:40]),
+        )
+        self.assertEqual(list(self.resume_directory.iterdir()), [])
+
+    def test_pdf_with_normal_metadata_is_accepted(self):
+        result = self.upload_resume(
+            contents=pdf_bytes({"/Title": "Resume"})
+        )
+        self.assertEqual(result.id, self.owner_id)
 
     def test_resume_mime_mismatch_is_rejected(self):
         self.assert_http_status(
