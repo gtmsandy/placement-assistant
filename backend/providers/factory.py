@@ -3,6 +3,7 @@ import os
 from providers.base import OtpDeliveryProvider
 from providers.email import ResendEmailProvider
 from providers.fake import FakeOtpProvider
+from providers.gmail_smtp import GmailSmtpEmailProvider
 
 
 class ProviderConfigurationError(RuntimeError):
@@ -34,6 +35,47 @@ def create_otp_provider() -> OtpDeliveryProvider:
             app_env=app_env,
             test_recipient=test_recipient,
         )
+
+    if provider_name == "gmail_smtp":
+        app_env = os.getenv("APP_ENV", "production").strip().lower()
+        if app_env != "development":
+            raise ProviderConfigurationError(
+                "Gmail SMTP is available only in development."
+            )
+
+        host = os.getenv("SMTP_HOST", "").strip()
+        port_value = os.getenv("SMTP_PORT", "").strip()
+        username = os.getenv("SMTP_USERNAME", "").strip()
+        app_password = os.getenv("SMTP_APP_PASSWORD", "").strip()
+        from_address = os.getenv("EMAIL_FROM_ADDRESS", "").strip()
+        from_name = os.getenv("EMAIL_FROM_NAME", "Placement Assistant").strip()
+
+        if not all(
+            (
+                host,
+                port_value,
+                username,
+                app_password,
+                from_address,
+            )
+        ):
+            raise ProviderConfigurationError(
+                "Gmail SMTP email delivery is not fully configured."
+            )
+        try:
+            port = int(port_value)
+            return GmailSmtpEmailProvider(
+                host=host,
+                port=port,
+                username=username,
+                app_password=app_password,
+                from_address=from_address,
+                from_name=from_name or "Placement Assistant",
+            )
+        except (TypeError, ValueError) as error:
+            raise ProviderConfigurationError(
+                "Gmail SMTP configuration is invalid."
+            ) from error
 
     if not provider_name:
         raise ProviderConfigurationError(

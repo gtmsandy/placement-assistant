@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass
 from html import escape
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -15,6 +16,53 @@ logger = logging.getLogger(__name__)
 
 class EmailDeliveryError(RuntimeError):
     """A sanitized email-provider failure safe for internal control flow."""
+
+
+@dataclass(frozen=True)
+class OtpEmailContent:
+    subject: str
+    text_body: str
+    html_body: str
+
+
+def build_otp_email_content(
+    *,
+    code: str,
+    purpose: str,
+    expires_in_seconds: int,
+) -> OtpEmailContent:
+    expiry_minutes = max(1, expires_in_seconds // 60)
+    if purpose == "student_registration":
+        subject = "Placement Assistant - Verify Your College Email"
+        instruction = (
+            "Use the following one-time code to verify your college email "
+            "for Placement Assistant registration"
+        )
+        ignore_message = "If you did not request registration, ignore this email."
+    elif purpose == "password_recovery":
+        subject = "Placement Assistant - Password Reset Code"
+        instruction = (
+            "Use the following one-time code to reset your Placement "
+            "Assistant password"
+        )
+        ignore_message = "If you did not request a password reset, ignore this email."
+    else:
+        raise ValueError("Unsupported OTP email purpose.")
+
+    return OtpEmailContent(
+        subject=subject,
+        text_body=(
+            f"{instruction}: {code}\n\n"
+            f"This code expires in {expiry_minutes} minutes. {ignore_message}"
+        ),
+        html_body=(
+            f"<p>{escape(instruction)}:</p>"
+            f"<p><strong style=\"font-size: 24px; letter-spacing: 4px\">"
+            f"{escape(code)}</strong></p>"
+            f"<p>This code expires in {expiry_minutes} minutes.</p>"
+            f"<p>{escape(ignore_message)}</p>"
+        ),
+    )
 
 
 class ResendEmailProvider:
@@ -65,41 +113,17 @@ class ResendEmailProvider:
         expires_in_seconds: int,
         idempotency_key: str,
     ) -> DeliveryResult:
-        expiry_minutes = max(1, expires_in_seconds // 60)
-        if purpose == "student_registration":
-            subject = "Placement Assistant - Verify Your College Email"
-            instruction = (
-                "Use the following one-time code to verify your college email "
-                "for Placement Assistant registration"
-            )
-            ignore_message = "If you did not request registration, ignore this email."
-        elif purpose == "password_recovery":
-            subject = "Placement Assistant - Password Reset Code"
-            instruction = (
-                "Use the following one-time code to reset your Placement "
-                "Assistant password"
-            )
-            ignore_message = "If you did not request a password reset, ignore this email."
-        else:
-            raise ValueError("Unsupported OTP email purpose.")
-
-        text_body = (
-            f"{instruction}: {code}\n\n"
-            f"This code expires in {expiry_minutes} minutes. {ignore_message}"
-        )
-        html_body = (
-            f"<p>{escape(instruction)}:</p>"
-            f"<p><strong style=\"font-size: 24px; letter-spacing: 4px\">"
-            f"{escape(code)}</strong></p>"
-            f"<p>This code expires in {expiry_minutes} minutes.</p>"
-            f"<p>{escape(ignore_message)}</p>"
+        content = build_otp_email_content(
+            code=code,
+            purpose=purpose,
+            expires_in_seconds=expires_in_seconds,
         )
         payload = {
             "from": f"{self.from_name} <{self.from_address}>",
             "to": [self.test_recipient or destination],
-            "subject": subject,
-            "text": text_body,
-            "html": html_body,
+            "subject": content.subject,
+            "text": content.text_body,
+            "html": content.html_body,
         }
         request = Request(
             RESEND_EMAIL_ENDPOINT,
