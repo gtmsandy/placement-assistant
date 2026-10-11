@@ -19,6 +19,11 @@ from sqlalchemy import text as sql_text
 from database import Base
 
 
+def utc_now_naive():
+    """Return UTC without tzinfo for existing timezone-naive DB columns."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class Student(Base):
     __tablename__ = "students"
 
@@ -509,5 +514,5 @@ class Application(Base):
 
     applied_at = Column(
         DateTime,
-        default=datetime.utcnow
+        default=utc_now_naive
     )

@@ -5,9 +5,48 @@ from typing import Optional
 from pydantic import BaseModel
 from pydantic import ConfigDict
 from pydantic import Field
+from pydantic import HttpUrl
+from pydantic import TypeAdapter
 from pydantic import field_validator
 
 from auth_identifiers import normalize_optional_mobile
+
+
+DRIVE_TEXT_MAX_LENGTH = 150
+DRIVE_URL_MAX_LENGTH = 500
+DriveStatus = Literal[
+    "Draft",
+    "Published",
+    "Withdrawn",
+]
+HTTP_URL_ADAPTER = TypeAdapter(HttpUrl)
+
+
+def normalize_required_drive_text(value):
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def normalize_optional_http_url(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return value
+
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if len(normalized) > DRIVE_URL_MAX_LENGTH:
+        raise ValueError(
+            "Registration link must be 500 characters or fewer."
+        )
+
+    return str(
+        HTTP_URL_ADAPTER.validate_python(
+            normalized
+        )
+    )
 
 
 class StudentBase(BaseModel):
@@ -106,9 +145,15 @@ class StudentResponse(StudentBase):
 
 
 class DriveBase(BaseModel):
-    company_name: str
+    company_name: str = Field(
+        min_length=1,
+        max_length=DRIVE_TEXT_MAX_LENGTH,
+    )
 
-    role: str
+    role: str = Field(
+        min_length=1,
+        max_length=DRIVE_TEXT_MAX_LENGTH,
+    )
 
     ctc: Optional[str] = None
 
@@ -169,7 +214,24 @@ class DriveBase(BaseModel):
 
     jd_filename: Optional[str] = None
 
-    status: str = "Published"
+    status: DriveStatus = "Published"
+
+    @field_validator(
+        "company_name",
+        "role",
+        mode="before",
+    )
+    @classmethod
+    def normalize_required_text(cls, value):
+        return normalize_required_drive_text(value)
+
+    @field_validator(
+        "registration_link",
+        mode="before",
+    )
+    @classmethod
+    def validate_registration_link(cls, value):
+        return normalize_optional_http_url(value)
 
 
 class DriveCreate(DriveBase):
@@ -177,9 +239,17 @@ class DriveCreate(DriveBase):
 
 
 class DriveUpdate(BaseModel):
-    company_name: Optional[str] = None
+    company_name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=DRIVE_TEXT_MAX_LENGTH,
+    )
 
-    role: Optional[str] = None
+    role: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=DRIVE_TEXT_MAX_LENGTH,
+    )
 
     ctc: Optional[str] = None
 
@@ -242,7 +312,26 @@ class DriveUpdate(BaseModel):
 
     jd_filename: Optional[str] = None
 
-    status: Optional[str] = None
+    status: Optional[DriveStatus] = None
+
+    @field_validator(
+        "company_name",
+        "role",
+        mode="before",
+    )
+    @classmethod
+    def normalize_required_text(cls, value):
+        if value is None:
+            return None
+        return normalize_required_drive_text(value)
+
+    @field_validator(
+        "registration_link",
+        mode="before",
+    )
+    @classmethod
+    def validate_registration_link(cls, value):
+        return normalize_optional_http_url(value)
 
 
 class DriveResponse(DriveBase):

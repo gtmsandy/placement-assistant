@@ -1,5 +1,6 @@
 import sys
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import HTTPException
@@ -110,6 +111,21 @@ class ApplicationIntegrityTests(unittest.TestCase):
     def test_valid_application_succeeds(self):
         application = self._add_application()
         self.assertIsNotNone(application.id)
+
+    def test_application_timestamp_remains_naive_utc(self):
+        before = datetime.now(timezone.utc).replace(tzinfo=None)
+        application = self._add_application()
+        after = datetime.now(timezone.utc).replace(tzinfo=None)
+
+        self.assertIsNone(application.applied_at.tzinfo)
+        self.assertGreaterEqual(
+            application.applied_at,
+            before - timedelta(seconds=1),
+        )
+        self.assertLessEqual(
+            application.applied_at,
+            after + timedelta(seconds=1),
+        )
 
     def test_duplicate_student_drive_is_rejected(self):
         self._add_application()

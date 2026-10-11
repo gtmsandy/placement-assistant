@@ -100,6 +100,110 @@ class NumericSchemaValidationTests(unittest.TestCase):
         )
 
 
+class DriveTextSchemaValidationTests(unittest.TestCase):
+    def assert_create_rejected(self, **overrides):
+        data = valid_drive_data()
+        data.update(overrides)
+
+        with self.assertRaises(ValidationError):
+            DriveCreate(**data)
+
+    def test_blank_company_is_rejected(self):
+        self.assert_create_rejected(company_name="")
+
+    def test_whitespace_company_is_rejected(self):
+        self.assert_create_rejected(company_name="   ")
+
+    def test_blank_role_is_rejected(self):
+        self.assert_create_rejected(role="")
+
+    def test_whitespace_role_is_rejected(self):
+        self.assert_create_rejected(role="   ")
+
+    def test_oversized_company_is_rejected(self):
+        self.assert_create_rejected(company_name="C" * 151)
+
+    def test_oversized_role_is_rejected(self):
+        self.assert_create_rejected(role="R" * 151)
+
+    def test_unsupported_status_is_rejected(self):
+        self.assert_create_rejected(status="Archived")
+
+    def test_supported_statuses_are_accepted(self):
+        for status in ("Draft", "Published", "Withdrawn"):
+            with self.subTest(status=status):
+                DriveCreate(**valid_drive_data(), status=status)
+
+    def test_javascript_url_is_rejected(self):
+        self.assert_create_rejected(registration_link="javascript:alert(1)")
+
+    def test_data_url_is_rejected(self):
+        self.assert_create_rejected(registration_link="data:text/html,test")
+
+    def test_file_url_is_rejected(self):
+        self.assert_create_rejected(registration_link="file:///tmp/test")
+
+    def test_malformed_url_is_rejected(self):
+        self.assert_create_rejected(registration_link="not a URL")
+
+    def test_valid_https_url_is_accepted(self):
+        drive = DriveCreate(
+            **valid_drive_data(),
+            registration_link="https://careers.example.com/apply",
+        )
+
+        self.assertEqual(
+            drive.registration_link,
+            "https://careers.example.com/apply",
+        )
+
+    def test_valid_http_url_is_accepted(self):
+        drive = DriveCreate(
+            **valid_drive_data(),
+            registration_link="http://careers.example.com/apply",
+        )
+
+        self.assertEqual(
+            drive.registration_link,
+            "http://careers.example.com/apply",
+        )
+
+    def test_empty_optional_url_is_accepted(self):
+        self.assertIsNone(
+            DriveCreate(
+                **valid_drive_data(),
+                registration_link="   ",
+            ).registration_link
+        )
+        self.assertIsNone(
+            DriveUpdate(
+                registration_link=None
+            ).registration_link
+        )
+
+    def test_company_and_role_are_trimmed(self):
+        drive = DriveCreate(
+            company_name="  Validation Company  ",
+            role="  Engineer  ",
+        )
+
+        self.assertEqual(drive.company_name, "Validation Company")
+        self.assertEqual(drive.role, "Engineer")
+
+    def test_update_cannot_bypass_drive_validation(self):
+        invalid_updates = (
+            {"company_name": "   "},
+            {"role": ""},
+            {"status": "Archived"},
+            {"registration_link": "javascript:alert(1)"},
+        )
+
+        for update in invalid_updates:
+            with self.subTest(update=tuple(update)):
+                with self.assertRaises(ValidationError):
+                    DriveUpdate(**update)
+
+
 class _FailingDriveSession:
     def __init__(self):
         self.rolled_back = False
