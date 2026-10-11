@@ -1,9 +1,14 @@
 import sys
+import tempfile
+import threading
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -168,6 +173,156 @@ class SecurityBoundaryTests(unittest.TestCase):
         )
         self.assertEqual(result.mobile, "9876543210")
         self.assertEqual(result.personal_email, "one.personal@example.com")
+
+    def test_duplicate_mobile_returns_conflict_without_mutation(self):
+        students.update_student(
+            self.ids["student_one"],
+            StudentProfileUpdate(mobile="9876543210"),
+            current_user=self.student_user,
+            db=self.db,
+        )
+        student_two = self.db.get(Student, self.ids["student_two"])
+        before = student_two.mobile
+
+        with self.assertRaises(HTTPException) as error:
+            students.update_student(
+                student_two.id,
+                StudentProfileUpdate(mobile="9876543210"),
+                current_user=self.db.query(User).filter(
+                    User.username == "student2"
+                ).one(),
+                db=self.db,
+            )
+
+        self.assertEqual(error.exception.status_code, 409)
+        self.db.refresh(student_two)
+        self.assertEqual(student_two.mobile, before)
+
+    def test_mobile_unique_integrity_error_rolls_back_and_returns_conflict(self):
+        original_error = SimpleNamespace(
+            diag=SimpleNamespace(constraint_name="uq_students_mobile")
+        )
+        integrity_error = IntegrityError("UPDATE", {}, original_error)
+
+        with (
+            patch.object(self.db, "commit", side_effect=integrity_error),
+            patch.object(self.db, "rollback", wraps=self.db.rollback) as rollback,
+        ):
+            with self.assertRaises(HTTPException) as error:
+                students.update_student(
+                    self.ids["student_one"],
+                    StudentProfileUpdate(mobile="9876543210"),
+                    current_user=self.student_user,
+                    db=self.db,
+                )
+
+        self.assertEqual(error.exception.status_code, 409)
+        rollback.assert_called_once()
+
+    def test_unrelated_integrity_error_is_not_converted_to_mobile_conflict(self):
+        original_error = SimpleNamespace(
+            diag=SimpleNamespace(constraint_name="uq_students_email_lower")
+        )
+        integrity_error = IntegrityError("UPDATE", {}, original_error)
+
+        with patch.object(self.db, "commit", side_effect=integrity_error):
+            with self.assertRaises(IntegrityError):
+                students.update_student(
+                    self.ids["student_one"],
+                    StudentProfileUpdate(mobile="9876543210"),
+                    current_user=self.student_user,
+                    db=self.db,
+                )
+
+    def test_concurrent_mobile_assignment_has_one_success_and_one_conflict(self):
+        with tempfile.TemporaryDirectory() as directory:
+            engine = create_engine(
+                f"sqlite:///{Path(directory) / 'mobile-race.db'}",
+                connect_args={"check_same_thread": False},
+            )
+            session_factory = sessionmaker(bind=engine)
+            Base.metadata.create_all(engine)
+            seed = session_factory()
+            seeded_students = [
+                Student(
+                    name=f"Race Student {index}",
+                    email=f"race{index}@nitrkl.ac.in",
+                    roll_no=f"RACE{index}",
+                    branch="CSE",
+                    graduation_year=2027,
+                    cgpa=8,
+                    tenth_percentage=80,
+                    twelfth_percentage=80,
+                )
+                for index in (1, 2)
+            ]
+            seed.add_all(seeded_students)
+            seed.flush()
+            seed.add_all([
+                User(
+                    username=student.email,
+                    password_hash="unused",
+                    role="student",
+                    student_id=student.id,
+                )
+                for student in seeded_students
+            ])
+            seed.commit()
+            student_ids = [student.id for student in seeded_students]
+            seed.close()
+
+            ready = threading.Barrier(2)
+            first_committed = threading.Event()
+            outcomes = []
+
+            def update(student_id, first):
+                db = session_factory()
+                user = db.query(User).filter(User.student_id == student_id).one()
+                real_commit = db.commit
+
+                def ordered_commit():
+                    ready.wait(timeout=5)
+                    if first:
+                        real_commit()
+                        first_committed.set()
+                    else:
+                        first_committed.wait(timeout=5)
+                        real_commit()
+
+                try:
+                    with patch.object(db, "commit", side_effect=ordered_commit):
+                        students.update_student(
+                            student_id,
+                            StudentProfileUpdate(mobile="9876543210"),
+                            current_user=user,
+                            db=db,
+                        )
+                    outcomes.append(200)
+                except HTTPException as error:
+                    outcomes.append(error.status_code)
+                finally:
+                    db.close()
+
+            threads = [
+                threading.Thread(target=update, args=(student_ids[0], True)),
+                threading.Thread(target=update, args=(student_ids[1], False)),
+            ]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=10)
+
+            self.assertEqual(sorted(outcomes), [200, 409])
+            verify = session_factory()
+            self.assertEqual(
+                verify.query(Student).filter(
+                    Student.mobile == "9876543210"
+                ).count(),
+                1,
+            )
+            verify.close()
+            Base.metadata.drop_all(engine)
+            engine.dispose()
 
     def test_student_cannot_update_another_student_profile(self):
         with self.assertRaises(HTTPException) as error:

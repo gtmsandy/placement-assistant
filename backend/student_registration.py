@@ -160,10 +160,7 @@ class StudentRegistrationService:
 
     def request(self, raw_email: str) -> RegistrationRequestResult:
         email = self._normalize_email(raw_email)
-        if self._account_exists(email):
-            raise RegistrationConflictError(
-                "An account already exists for this college email."
-            )
+        account_exists = self._account_exists(email)
 
         now = self.now_factory()
         fingerprint = self._fingerprint(email)
@@ -196,11 +193,19 @@ class StudentRegistrationService:
         challenge = OtpChallenge(
             id=challenge_id,
             user_id=None,
-            registration_email=email,
+            registration_email=(
+                None
+                if account_exists
+                else email
+            ),
             identifier_fingerprint=fingerprint,
             identifier_kind="email",
             purpose=PURPOSE,
-            channel="email",
+            channel=(
+                "none"
+                if account_exists
+                else "email"
+            ),
             otp_digest=self._otp_digest(challenge_id, code),
             created_at=now,
             expires_at=now + OTP_TTL,

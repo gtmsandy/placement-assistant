@@ -1,14 +1,18 @@
 import asyncio
 import sys
+import tempfile
+import threading
 import unittest
 from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from openpyxl import Workbook
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Query
 from sqlalchemy.pool import StaticPool
 from starlette.datastructures import UploadFile
 
@@ -283,12 +287,219 @@ class RoundResultAndAuthorizationTests(unittest.TestCase):
             Application.drive_id == self.ids[drive_key],
         ).one()
 
+    def _drive_with_application(self, status):
+        drive = PlacementDrive(
+            company_name=f"{status} Results Co",
+            role="Engineer",
+            status=status,
+            resume_shortlisting=False,
+        )
+        self.db.add(drive)
+        self.db.flush()
+        application = Application(
+            student_id=self.ids["students"][0],
+            drive_id=drive.id,
+            status="Applied",
+            current_stage="Applied",
+        )
+        self.db.add(application)
+        self.db.commit()
+        return drive, application
+
+    def _upload_for_drive(self, drive_id, stage="PPT"):
+        return asyncio.run(
+            drives.upload_round_results(
+                drive_id,
+                stage=stage,
+                file=self._workbook_upload(["24CS001"]),
+                current_user=self.admin_user,
+                db=self.db,
+            )
+        )
+
     def test_excel_listed_candidate_advances(self):
         result = self._upload("PPT", ["24CS001"])
         application = self._application(0)
         self.assertEqual(result["passed_count"], 1)
         self.assertEqual(application.status, "Shortlisted")
         self.assertEqual(application.current_stage, "Online Test")
+
+    def test_published_drive_accepts_round_results(self):
+        result = self._upload("PPT", ["24CS001"])
+        self.assertEqual(result["total_processed"], 2)
+
+    def test_round_processing_acquires_database_row_lock(self):
+        calls = []
+        original = Query.with_for_update
+
+        def track_lock(query, *args, **kwargs):
+            calls.append((args, kwargs))
+            return original(query, *args, **kwargs)
+
+        with patch.object(
+            Query,
+            "with_for_update",
+            new=track_lock,
+        ):
+            self._upload("PPT", ["24CS001"])
+
+        self.assertTrue(calls)
+
+    def test_simultaneous_round_processing_has_one_success_and_one_conflict(self):
+        with tempfile.TemporaryDirectory() as directory:
+            engine = create_engine(
+                f"sqlite:///{Path(directory) / 'round-race.db'}",
+                connect_args={"check_same_thread": False},
+            )
+            session_factory = sessionmaker(bind=engine)
+            Base.metadata.create_all(engine)
+            seed = session_factory()
+            student = Student(
+                name="Round Race Student",
+                email="round.race@nitrkl.ac.in",
+                roll_no="ROUND001",
+                branch="CSE",
+                graduation_year=2027,
+                cgpa=8,
+                tenth_percentage=80,
+                twelfth_percentage=80,
+            )
+            drive = PlacementDrive(
+                company_name="Round Race Co",
+                role="Engineer",
+                status="Published",
+                resume_shortlisting=False,
+            )
+            seed.add_all([student, drive])
+            seed.flush()
+            seed.add(
+                Application(
+                    student_id=student.id,
+                    drive_id=drive.id,
+                    status="Applied",
+                    current_stage="Applied",
+                )
+            )
+            seed.commit()
+            drive_id = drive.id
+            seed.close()
+
+            initial_reads = threading.Barrier(2)
+            drive_lock = threading.Lock()
+            outcomes = []
+
+            class LockedDriveQuery:
+                def __init__(self, query, owner):
+                    self.query = query
+                    self.owner = owner
+                    self.locked = False
+
+                def filter(self, *criteria):
+                    self.query = self.query.filter(*criteria)
+                    return self
+
+                def with_for_update(self, *args, **kwargs):
+                    self.query = self.query.with_for_update(*args, **kwargs)
+                    self.locked = True
+                    return self
+
+                def populate_existing(self):
+                    self.query = self.query.populate_existing()
+                    return self
+
+                def first(self):
+                    if self.locked:
+                        drive_lock.acquire()
+                        self.owner.holds_lock = True
+                        self.owner.session.rollback()
+                    else:
+                        initial_reads.wait(timeout=5)
+                    return self.query.first()
+
+            class SerializedSession:
+                def __init__(self):
+                    self.session = session_factory()
+                    self.holds_lock = False
+
+                def query(self, *entities):
+                    query = self.session.query(*entities)
+                    if entities == (PlacementDrive,):
+                        return LockedDriveQuery(query, self)
+                    return query
+
+                def _release(self):
+                    if self.holds_lock:
+                        self.holds_lock = False
+                        drive_lock.release()
+
+                def commit(self):
+                    try:
+                        return self.session.commit()
+                    finally:
+                        self._release()
+
+                def rollback(self):
+                    try:
+                        return self.session.rollback()
+                    finally:
+                        self._release()
+
+                def close(self):
+                    self._release()
+                    self.session.close()
+
+            def process():
+                db = SerializedSession()
+                try:
+                    result = asyncio.run(
+                        drives.upload_round_results(
+                            drive_id,
+                            stage="PPT",
+                            file=self._workbook_upload(["ROUND001"]),
+                            current_user=SimpleNamespace(role="admin"),
+                            db=db,
+                        )
+                    )
+                    outcomes.append((200, result["total_processed"]))
+                except HTTPException as error:
+                    outcomes.append((error.status_code, 0))
+                finally:
+                    db.close()
+
+            threads = [threading.Thread(target=process) for _ in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=10)
+
+            self.assertEqual(sorted(outcomes), [(200, 1), (409, 0)])
+            verify = session_factory()
+            application = verify.query(Application).one()
+            self.assertEqual(
+                (application.status, application.current_stage),
+                ("Shortlisted", "Online Test"),
+            )
+            verify.close()
+            Base.metadata.drop_all(engine)
+            engine.dispose()
+
+    def test_draft_drive_rejects_round_results_without_mutation(self):
+        drive, application = self._drive_with_application("Draft")
+        before = (application.status, application.current_stage)
+        with self.assertRaises(HTTPException) as error:
+            self._upload_for_drive(drive.id)
+        self.assertEqual(error.exception.status_code, 409)
+        self.db.refresh(application)
+        self.assertEqual((application.status, application.current_stage), before)
+
+    def test_withdrawn_drive_rejects_round_results_without_mutation(self):
+        drive, application = self._drive_with_application("Withdrawn")
+        before = (application.status, application.current_stage)
+        with self.assertRaises(HTTPException) as error:
+            self._upload_for_drive(drive.id)
+        self.assertEqual(error.exception.status_code, 409)
+        self.db.refresh(application)
+        self.assertEqual((application.status, application.current_stage), before)
 
     def test_excel_absent_candidate_is_rejected(self):
         result = self._upload("PPT", ["24CS001"])
@@ -322,7 +533,7 @@ class RoundResultAndAuthorizationTests(unittest.TestCase):
         ]
         with self.assertRaises(HTTPException) as error:
             self._upload("PPT", ["24CS001", "24CS002"])
-        self.assertEqual(error.exception.status_code, 400)
+        self.assertEqual(error.exception.status_code, 409)
         after = [
             (self._application(index).status, self._application(index).current_stage)
             for index in (0, 1, 2)

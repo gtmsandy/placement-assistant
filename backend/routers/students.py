@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi.responses import FileResponse
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -42,6 +43,25 @@ os.makedirs(
     RESUME_DIRECTORY,
     exist_ok=True
 )
+
+
+def _is_mobile_unique_violation(error):
+    constraint_name = getattr(
+        getattr(
+            getattr(error, "orig", None),
+            "diag",
+            None,
+        ),
+        "constraint_name",
+        None,
+    )
+    if constraint_name == "uq_students_mobile":
+        return True
+
+    return (
+        "unique constraint failed: students.mobile"
+        in str(getattr(error, "orig", "")).lower()
+    )
 
 
 @router.get(
@@ -169,15 +189,45 @@ def update_student(
         exclude_unset=True
     )
 
-    for field, value in updated_data.items():
-        setattr(
-            student,
-            field,
-            value,
+    mobile = updated_data.get("mobile")
+
+    if mobile is not None:
+        existing_mobile = (
+            db.query(Student.id)
+            .filter(
+                Student.mobile == mobile,
+                Student.id != student_id,
+            )
+            .first()
         )
 
-    db.commit()
-    db.refresh(student)
+        if existing_mobile:
+            raise HTTPException(
+                status_code=409,
+                detail="Mobile number is already registered.",
+            )
+
+    try:
+        for field, value in updated_data.items():
+            setattr(
+                student,
+                field,
+                value,
+            )
+
+        db.commit()
+        db.refresh(student)
+
+    except IntegrityError as error:
+        db.rollback()
+
+        if _is_mobile_unique_violation(error):
+            raise HTTPException(
+                status_code=409,
+                detail="Mobile number is already registered.",
+            ) from error
+
+        raise
 
     return student
 

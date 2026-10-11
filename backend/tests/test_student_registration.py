@@ -169,10 +169,40 @@ class StudentRegistrationTests(unittest.TestCase):
         self.assertEqual(self.db.query(Student).count(), 0)
         self.assertEqual(self.db.query(User).count(), 0)
 
-    def test_existing_email_is_blocked(self):
+    def test_existing_email_request_is_suppressed_without_otp_delivery(self):
         self.add_student()
-        with self.assertRaises(RegistrationConflictError):
-            self.service.request(" EXISTING@NITRKL.AC.IN ")
+        result = self.service.request(" EXISTING@NITRKL.AC.IN ")
+        challenge = self.db.get(OtpChallenge, result.challenge_id)
+
+        self.assertEqual(self.provider.deliveries, [])
+        self.assertIsNone(challenge.registration_email)
+        self.assertEqual(challenge.channel, "none")
+        self.assertEqual(challenge.delivery_status, "suppressed")
+
+    def test_existing_and_unknown_registration_requests_have_equivalent_public_shape(self):
+        self.add_student()
+        existing = request_student_registration(
+            RegistrationEmailRequest(email="existing@nitrkl.ac.in"),
+            self.service,
+        )
+        unknown = request_student_registration(
+            RegistrationEmailRequest(email="unknown@nitrkl.ac.in"),
+            self.service,
+        )
+
+        self.assertEqual(existing.keys(), unknown.keys())
+        self.assertEqual(existing["message"], unknown["message"])
+        self.assertEqual(
+            existing["retry_after_seconds"],
+            unknown["retry_after_seconds"],
+        )
+
+    def test_suppressed_existing_account_challenge_cannot_be_verified(self):
+        self.add_student()
+        result = self.service.request("existing@nitrkl.ac.in")
+
+        with self.assertRaises(RegistrationCodeError):
+            self.service.verify(result.challenge_id, "000000")
 
     def test_invalid_otp_increments_attempts(self):
         result, _ = self.request()

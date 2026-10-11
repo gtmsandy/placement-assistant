@@ -76,6 +76,17 @@ def normalize_roll_no(value):
     )
 
 
+def ensure_drive_allows_result_processing(drive):
+    if drive.status != "Published":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Recruitment results can only be processed "
+                "for a published placement drive."
+            ),
+        )
+
+
 @router.get(
     "/",
     response_model=list[DriveResponse],
@@ -522,6 +533,10 @@ async def upload_round_results(
             ),
         )
 
+    ensure_drive_allows_result_processing(
+        drive
+    )
+
     stage = normalize_stage(stage)
 
     allowed_stages = list(ROUND_STAGES)
@@ -714,6 +729,34 @@ async def upload_round_results(
         stage
     )
 
+    drive = (
+        db.query(
+            PlacementDrive
+        )
+        .filter(
+            PlacementDrive.id
+            == drive_id
+        )
+        .with_for_update()
+        .populate_existing()
+        .first()
+    )
+
+    if not drive:
+        db.rollback()
+        raise HTTPException(
+            status_code=404,
+            detail="Placement drive not found",
+        )
+
+    try:
+        ensure_drive_allows_result_processing(
+            drive
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+
     applications = (
         db.query(
             Application,
@@ -773,19 +816,25 @@ async def upload_round_results(
             }
         )
 
-        if available_stages:
+        if applications:
+            db.rollback()
 
             raise HTTPException(
-                status_code=400,
+                status_code=409,
                 detail=(
                     f"No applications are "
                     f"currently ready for "
                     f"the '{stage}' round. "
-                    f"Current application "
-                    f"stages are: "
-                    f"{', '.join(available_stages)}"
+                    + (
+                        "Current application stages are: "
+                        f"{', '.join(available_stages)}"
+                        if available_stages
+                        else "The round has already been processed."
+                    )
                 ),
             )
+
+        db.rollback()
 
         raise HTTPException(
             status_code=400,
