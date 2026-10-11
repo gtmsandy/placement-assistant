@@ -4,10 +4,11 @@ sqlalchemy
 pydantic
 python-multipart
 bcrypt
-python-jose[cryptography]
+PyJWT==2.15.1
 python-dotenv
 openpyxl
 psycopg2-binary
 alembic
+httpx2
 resend==2.48.0
-pypdf==6.11.0
+pypdf==6.19.0

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
-from jose import jwt
+import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -73,7 +73,7 @@ class PasswordRecoveryTests(unittest.TestCase):
         cls.secrets = RecoverySecrets(
             otp_hash="otp-test-secret",
             identifier_hash="identifier-test-secret",
-            reset_token="reset-token-test-secret",
+            reset_token="reset-token-test-secret-at-least-32-bytes",
         )
 
     @classmethod

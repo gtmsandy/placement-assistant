@@ -52,11 +52,19 @@ function StudentDashboard() {
     student?.username ||
     'Student'
 
-  function handleLogout() {
-    logoutUser()
-    navigate('/login', {
-      replace: true,
-    })
+  async function handleLogout() {
+    try {
+      await logoutUser()
+    } catch (error) {
+      console.error(
+        'Server-side logout failed:',
+        error
+      )
+    } finally {
+      navigate('/login', {
+        replace: true,
+      })
+    }
   }
 
   return (

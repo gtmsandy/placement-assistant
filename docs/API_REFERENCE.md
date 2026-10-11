@@ -1,23 +1,23 @@
 # API REFERENCE — Campus Placement Assistant
 
-> **Historical reference:** Endpoint examples below describe an earlier port-8000/public-upload version and are not authoritative for the completed V1. Use FastAPI `/docs` on port 8001 plus the repository root `README.md` and `docs/PROJECT_GUIDE.md` for current behavior.
+> **Historical reference:** Endpoint examples below are retained as development notes. Current browser requests use same-origin `/api`, protected files use authorized API endpoints, and FastAPI `/docs` runs on port 8001. Use the root `README.md`, `docs/PROJECT_GUIDE.md`, and live OpenAPI schema as authoritative sources.
 
 Base API:
 
 ```text
-http://127.0.0.1:8000/api
+http://127.0.0.1:8001/api
 ```
 
 Swagger:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8001/docs
 ```
 
 OpenAPI:
 
 ```text
-http://127.0.0.1:8000/openapi.json
+http://127.0.0.1:8001/openapi.json
 ```
 
 ---
@@ -431,27 +431,16 @@ Response:
 
 ---
 
-# 5. Static File Endpoint
+# 5. Protected File Endpoints
 
-The application also exposes uploaded files through:
-
-```text
-/uploads/*
-```
-
-Example:
+Uploaded files are not publicly mounted. Authenticated, authorized downloads use:
 
 ```text
-http://127.0.0.1:8000/uploads/jd/example.pdf
+GET /api/students/{student_id}/resume
+GET /api/drives/{drive_id}/jd
 ```
 
-This is not a router endpoint in `routers/drives.py`.
-
-It is provided by:
-
-```text
-FastAPI StaticFiles
-```
+The routers enforce ownership, role, and drive-lifecycle rules before resolving a confined storage path.
 
 configured in:
 
@@ -559,7 +548,7 @@ For JD upload:
 4. Confirm python-multipart is installed.
 5. Confirm file appears in backend/uploads/jd.
 6. Confirm jd and jd_filename are returned by API.
-7. Open the /uploads URL directly.
+7. Download through the protected JD endpoint with an authorized session.
 ```
 
 ---
@@ -569,7 +558,7 @@ For JD upload:
 Open:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8001/docs
 ```
 
 Use:

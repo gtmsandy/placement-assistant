@@ -30,6 +30,7 @@ from models import User
 from schemas import DriveCreate
 from schemas import DriveResponse
 from schemas import DriveUpdate
+from storage_config import JD_DIRECTORY
 from upload_security import EXCEL_MIME_TYPES
 from upload_security import JD_MIME_TYPES
 from upload_security import MAX_EXCEL_SIZE
@@ -55,7 +56,7 @@ router = APIRouter(
 )
 
 
-UPLOAD_DIR = "uploads/jd"
+UPLOAD_DIR = JD_DIRECTORY
 
 os.makedirs(
     UPLOAD_DIR,

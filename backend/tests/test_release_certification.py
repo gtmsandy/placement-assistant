@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 from fastapi import HTTPException, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
-from jose import jwt
+import jwt
 from openpyxl import Workbook
 from pydantic import ValidationError
 from sqlalchemy import create_engine
@@ -217,7 +217,7 @@ class JwtAndHttpBoundaryTests(unittest.TestCase):
                 "auth_version": 0,
                 "exp": now + timedelta(hours=1),
             },
-            "different-test-secret",
+            "different-test-secret-at-least-32-bytes",
             algorithm=ALGORITHM,
         )
         for token in ("not-a-jwt", tampered, expired, wrong_secret):

@@ -108,19 +108,19 @@ For students, supported identifiers are:
 
 - NITR college email (`@nitrkl.ac.in`)
 - registered Indian mobile number
-- existing username
 
 Mobile input is normalized to a canonical 10-digit value, including supported `+91` input. Administrators continue to use configured usernames.
 
-After bcrypt password verification, the API issues an HS256 access JWT containing:
+After bcrypt password verification, the API issues an eight-hour HS256 access JWT in the host-only `placement_access` HttpOnly cookie. The signed token contains:
 
 - user ID in `sub`;
 - role;
 - token type `access`;
 - `auth_version`;
+- a random session-bound CSRF nonce;
 - issue and expiry timestamps.
 
-Protected dependencies decode the token, require the access-token type, load the current user, and compare the token’s `auth_version` with the database.
+Protected dependencies decode the cookie, require the access-token type and role, load the current user, and compare the token’s `auth_version` with the database. The SPA reconstructs authentication with `/api/auth/session`, stores the returned CSRF nonce only in memory, and supplies it in `X-CSRF-Token` on unsafe authenticated requests. Logout increments `auth_version`, invalidating older sessions.
 
 ## 7. Authorization
 
@@ -339,11 +339,7 @@ EMAIL_FROM_ADDRESS
 EMAIL_FROM_NAME
 ```
 
-Frontend environment variable:
-
-```text
-VITE_API_BASE_URL
-```
+The frontend uses relative `/api/*` URLs. In development, Vite proxies those requests to FastAPI on port 8001; production routes them through the same public origin.
 
 Never commit real values. Alembic is authoritative; do not manually create tables or run the retired SQLite migration script for a new PostgreSQL database.
 
@@ -363,7 +359,7 @@ It versions schema changes so they can be reviewed, applied in order, reproduced
 
 ### How does JWT authentication work here?
 
-After password verification, the server signs an access JWT containing user ID, role, token type, timestamps, and `auth_version`. Protected dependencies verify the signature and type, load the user, and compare the current version.
+After password verification, the server signs an eight-hour access JWT containing user ID, role, token type, timestamps, `auth_version`, and a CSRF nonce. It is stored only in an HttpOnly cookie. Protected dependencies verify the signature, type, role, and current version; unsafe requests also require the matching CSRF nonce.
 
 ### Authentication versus authorization?
 

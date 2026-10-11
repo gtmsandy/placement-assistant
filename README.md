@@ -19,7 +19,7 @@ The application is designed around two roles:
 - Alembic
 - Pydantic
 - PostgreSQL
-- JWT (`python-jose`) and bcrypt
+- JWT (PyJWT) and bcrypt
 - OpenPyXL for recruitment-result workbooks
 
 ### Frontend
@@ -58,9 +58,9 @@ The application is designed around two roles:
 
 ### Security Features
 
-- JWT authentication and role-based access control (RBAC)
+- HttpOnly cookie JWT authentication, session-bound CSRF protection, and role-based access control (RBAC)
 - bcrypt password hashing
-- Access-token invalidation through `auth_version` after password reset
+- Access-token invalidation through `auth_version` after logout or password reset
 - HMAC-hashed OTP and reset-token JTI values
 - OTP expiry, attempt limits, resend cooldowns, and resend limits
 - One-time reset-token consumption and replay prevention
@@ -73,13 +73,11 @@ The application is designed around two roles:
 ## Architecture
 
 ```text
-React frontend
-      ↓ HTTP/JSON and multipart uploads
-FastAPI REST API
-      ↓
-SQLAlchemy ORM
-      ↓
-PostgreSQL
+Browser → HTTPS reverse proxy
+            ├── /       React/Vite/PWA static files
+            └── /api/*  ONE FastAPI process
+                           ├── persistent protected upload disk
+                           └── Supabase PostgreSQL
 ```
 
 Cross-cutting services keep important policy out of individual pages and endpoints:
@@ -124,7 +122,7 @@ The backend is authoritative and returns a controlled reason when a criterion fa
 
 ## Authentication and Password Recovery
 
-Students can authenticate with their NITR college email, registered Indian mobile number, or username. Administrators authenticate with their configured username. Successful login returns a role-bearing access JWT, and protected routes verify both the token and current user role.
+Students authenticate with their NITR college email or registered Indian mobile number. Administrators authenticate with their configured username or email. Successful login stores an eight-hour role-bearing JWT in the host-only `placement_access` HttpOnly cookie. The SPA reconstructs authentication through `GET /api/auth/session`, keeps its CSRF nonce in memory, and sends `X-CSRF-Token` on unsafe authenticated requests. Logout increments `auth_version`, invalidating every older session for that user.
 
 Password recovery is email-only and supports 6-digit OTP challenges sent to the student's institutional NITR email, secure HMAC digests, expiry, attempt and resend controls, a short-lived reset JWT, one-time reset authorization, bcrypt password replacement, and invalidation of older access tokens through `auth_version`. SMS OTP is not part of V1.
 
@@ -176,7 +174,7 @@ From the project root:
 cd backend
 python -m venv venv
 .\venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+python -m pip install -r requirements.lock.txt
 ```
 
 Create `backend/.env` and set the backend variables listed below. Then apply migrations and start the API:
@@ -201,7 +199,7 @@ npm install
 npm run dev
 ```
 
-Vite normally serves the application at `http://127.0.0.1:5173` or prints the selected local URL. The frontend API URL must point to the backend on port `8001`.
+Vite normally serves the application at `http://127.0.0.1:5173` or prints the selected local URL. Browser calls use relative `/api/*` URLs; the Vite development proxy forwards them to FastAPI on port `8001`.
 
 ## Environment Variables
 
@@ -219,13 +217,12 @@ EMAIL_PROVIDER=resend
 RESEND_API_KEY=replace_with_resend_api_key
 EMAIL_FROM_ADDRESS=no-reply@example.com
 EMAIL_FROM_NAME=Placement Assistant
+APP_ENV=development
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+UPLOAD_ROOT=uploads
 ```
 
-Frontend (project-root `.env`):
-
-```dotenv
-VITE_API_BASE_URL=http://127.0.0.1:8001
-```
+Production must use `APP_ENV=production`, an absolute `UPLOAD_ROOT` on persistent storage, HTTPS, strong independent secrets, and the Resend provider. Production same-origin operation does not require `ALLOWED_ORIGINS`; omit it unless a specific cross-origin client is intentionally supported.
 
 `BROWSER_DEMO_PASSWORD` is optional and is used only by the explicit browser-demo seed utility. Do not run seed utilities against a database unless that is intentional.
 
@@ -256,7 +253,7 @@ Frontend, from the project root:
 npm run build
 ```
 
-The submission baseline was verified with 150 passing backend tests and a successful production frontend build.
+The release-readiness suite contains more than 267 backend tests and a production frontend build check.
 
 ## Security Notes
 
@@ -267,5 +264,6 @@ The submission baseline was verified with 150 passing backend tests and a succes
 - OTPs and reset-token JTIs are never stored in plaintext.
 - Password-recovery request responses do not disclose whether an account exists.
 - Secrets belong in environment variables, never source control.
+- The v1.0.0 login limiter is process-local. Production must run exactly one FastAPI process and one worker until an authoritative shared limiter is introduced.
 
-For a system-design and interview walkthrough, see [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md).
+For a system-design and interview walkthrough, see [`docs/PROJECT_GUIDE.md`](docs/PROJECT_GUIDE.md). For production operations, security headers, migration, backup, and rollback requirements, see [`docs/PRODUCTION_RUNBOOK.md`](docs/PRODUCTION_RUNBOOK.md).

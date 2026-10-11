@@ -17,7 +17,7 @@ if str(BACKEND_DIR) not in sys.path:
 
 os.environ.setdefault(
     "JWT_SECRET_KEY",
-    "auth-foundation-test-secret",
+    "auth-foundation-test-secret-at-least-32-bytes",
 )
 
 from database import Base  # noqa: E402

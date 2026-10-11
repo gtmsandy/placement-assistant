@@ -5,43 +5,22 @@ import {
 } from './uploadValidation'
 
 
-const configuredApiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL?.trim()
+const API_BASE_URL = ''
 
-if (
-  !configuredApiBaseUrl &&
-  import.meta.env.PROD
-) {
-  throw new Error(
-    'VITE_API_BASE_URL is required in production.'
-  )
-}
-
-const API_BASE_URL =
-  configuredApiBaseUrl ||
-  'http://127.0.0.1:8001'
-
-
-export function getAuthToken() {
-  return localStorage.getItem(
-    'access_token'
-  )
-}
+let sessionUser = null
+let csrfToken = null
 
 
 export function getAuthHeaders(
   additionalHeaders = {}
 ) {
-  const token =
-    getAuthToken()
-
   return {
     ...additionalHeaders,
 
-    ...(token
+    ...(csrfToken
       ? {
-          Authorization:
-            `Bearer ${token}`,
+          'X-CSRF-Token':
+            csrfToken,
         }
       : {}),
   }
@@ -61,45 +40,37 @@ function notifyAuthChanged() {
 
 
 export function clearAuth() {
-  localStorage.removeItem(
-    'access_token'
-  )
-
-  localStorage.removeItem(
-    'user'
-  )
+  sessionUser = null
+  csrfToken = null
 
   notifyAuthChanged()
 }
 
 
-export function logoutUser() {
-  clearAuth()
+export async function logoutUser() {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/auth/logout`,
+      {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      }
+    )
+
+    return await parseResponse(response)
+  } finally {
+    clearAuth()
+  }
 }
 
 
 export function getStoredUser() {
-  const storedUser =
-    localStorage.getItem(
-      'user'
-    )
-
-  if (!storedUser) {
-    return null
-  }
-
-  try {
-    return JSON.parse(
-      storedUser
-    )
-  } catch {
-    return null
-  }
+  return sessionUser
 }
 
 
-export function getAccessToken() {
-  return getAuthToken()
+export function hasAuthenticatedSession() {
+  return Boolean(sessionUser)
 }
 
 
@@ -317,30 +288,34 @@ export async function loginUser(
 
   if (
     !data ||
-    !data.access_token
+    !data.user ||
+    !data.csrf_token
   ) {
     throw new Error(
-      'Login succeeded but no access token was returned.'
+      'Login succeeded but no session was returned.'
     )
   }
 
-  localStorage.setItem(
-    'access_token',
-    data.access_token
-  )
-
-  if (data.user) {
-    localStorage.setItem(
-      'user',
-      JSON.stringify(
-        data.user
-      )
-    )
-  }
+  sessionUser = data.user
+  csrfToken = data.csrf_token
 
   notifyAuthChanged()
 
   return data
+}
+
+
+export async function getSession() {
+  const response = await fetch(
+    `${API_BASE_URL}/api/auth/session`
+  )
+  const data = await parseResponse(response)
+
+  sessionUser = data.user
+  csrfToken = data.csrf_token
+  notifyAuthChanged()
+
+  return data.user
 }
 
 

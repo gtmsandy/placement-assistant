@@ -1,4 +1,6 @@
+import hmac
 import os
+import secrets
 
 from dotenv import load_dotenv
 
@@ -10,11 +12,12 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Request
+from fastapi import Response
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.security import HTTPBearer
 
-from jose import JWTError
-from jose import jwt
+import jwt
+from jwt import PyJWTError as JWTError
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -61,6 +64,10 @@ router = APIRouter(
 )
 
 
+def _production_environment():
+    return os.getenv("APP_ENV", "production").strip().lower() != "development"
+
+
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 
 if not SECRET_KEY:
@@ -68,10 +75,29 @@ if not SECRET_KEY:
         "JWT_SECRET_KEY environment variable is not set"
     )
 
+if _production_environment() and len(SECRET_KEY.encode("utf-8")) < 32:
+    raise RuntimeError(
+        "JWT_SECRET_KEY must be at least 32 bytes in production"
+    )
+
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8
 TOKEN_TYPE = "access"
+ACCESS_COOKIE_NAME = "placement_access"
+ACCESS_COOKIE_PATH = "/api"
+CSRF_EXEMPT_PATHS = {
+    "/api/auth/login",
+    "/api/auth/forgot-password",
+    "/api/auth/register/request",
+    "/api/auth/register/resend",
+    "/api/auth/register/verify",
+    "/api/auth/register/complete",
+    "/api/auth/password-recovery/request",
+    "/api/auth/password-recovery/resend",
+    "/api/auth/password-recovery/verify",
+    "/api/auth/password-reset",
+}
 INVALID_LOGIN_DETAIL = (
     "Invalid username/email/mobile or password."
 )
@@ -183,9 +209,8 @@ class UserResponse(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str
     user: UserResponse
+    csrf_token: str
 
 
 DUMMY_PASSWORD_HASH = hash_password(
@@ -264,6 +289,7 @@ def create_access_token(
     user_id: int,
     role: str,
     auth_version: int = 0,
+    csrf_token: str | None = None,
 ):
     now = datetime.now(timezone.utc)
 
@@ -279,6 +305,7 @@ def create_access_token(
         "role": role,
         "type": TOKEN_TYPE,
         "auth_version": auth_version,
+        "csrf": csrf_token or secrets.token_urlsafe(32),
         "iat": now,
         "exp": expire,
     }
@@ -290,6 +317,28 @@ def create_access_token(
     )
 
 
+def set_access_cookie(response: Response, token: str):
+    response.set_cookie(
+        key=ACCESS_COOKIE_NAME,
+        value=token,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        httponly=True,
+        secure=_production_environment(),
+        samesite="lax",
+        path=ACCESS_COOKIE_PATH,
+    )
+
+
+def clear_access_cookie(response: Response):
+    response.delete_cookie(
+        key=ACCESS_COOKIE_NAME,
+        path=ACCESS_COOKIE_PATH,
+        secure=_production_environment(),
+        httponly=True,
+        samesite="lax",
+    )
+
+
 @router.post(
     "/login",
     response_model=TokenResponse,
@@ -298,6 +347,7 @@ def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db),
     request: Request = None,
+    response: Response = None,
 ):
     requested_role = (
         login_data.role
@@ -359,17 +409,27 @@ def login(
 
     login_rate_limiter.clear(limiter_key)
 
+    csrf_token = secrets.token_urlsafe(32)
     access_token = create_access_token(
         user.id,
         user.role,
         user.auth_version or 0,
+        csrf_token,
     )
 
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
+    result = {
         "user": user,
+        "csrf_token": csrf_token,
     }
+    if response is not None:
+        set_access_cookie(response, access_token)
+    else:
+        # Direct-call compatibility for existing Python tests and CLI helpers.
+        # The HTTP response model never exposes these fields to browser code.
+        result["access_token"] = access_token
+        result["token_type"] = "bearer"
+
+    return result
 
 
 @router.post(
@@ -630,6 +690,7 @@ def get_current_user(
         security
     ),
     db: Session = Depends(get_db),
+    request: Request = None,
 ):
     credentials_exception = HTTPException(
         status_code=401,
@@ -639,13 +700,14 @@ def get_current_user(
         },
     )
 
-    if credentials is None:
-        raise credentials_exception
+    token = request.cookies.get(ACCESS_COOKIE_NAME) if request is not None else None
 
-    if credentials.scheme.lower() != "bearer":
-        raise credentials_exception
-
-    token = credentials.credentials
+    # Compatibility for non-browser API/CLI clients. The SPA never receives
+    # or persists the access token after the cookie migration.
+    if not token and credentials is not None:
+        if credentials.scheme.lower() != "bearer":
+            raise credentials_exception
+        token = credentials.credentials
 
     if not token:
         raise credentials_exception
@@ -663,9 +725,10 @@ def get_current_user(
             raise credentials_exception
 
         user_id = payload.get("sub")
+        token_role = payload.get("role")
         token_auth_version = payload.get("auth_version", 0)
 
-        if user_id is None:
+        if user_id is None or not isinstance(token_role, str):
             raise credentials_exception
 
         try:
@@ -690,7 +753,63 @@ def get_current_user(
     if token_auth_version != (user.auth_version or 0):
         raise credentials_exception
 
+    if token_role.lower() != user.role.lower():
+        raise credentials_exception
+
     return user
+
+
+@router.get("/session", response_model=TokenResponse)
+def get_session(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        payload = jwt.decode(
+            request.cookies[ACCESS_COOKIE_NAME],
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+        )
+        csrf_token = payload["csrf"]
+    except (JWTError, KeyError, TypeError) as error:
+        raise HTTPException(status_code=401, detail="Could not validate credentials") from error
+    return {"user": current_user, "csrf_token": csrf_token}
+
+
+@router.post("/logout")
+def logout(
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    try:
+        current_user.auth_version = (current_user.auth_version or 0) + 1
+        db.commit()
+        db.refresh(current_user)
+    except Exception:
+        db.rollback()
+        clear_access_cookie(response)
+        response.status_code = 500
+        return {"detail": "Logout failed."}
+    clear_access_cookie(response)
+    return {"message": "Logged out successfully."}
+
+
+def csrf_request_is_valid(request: Request) -> bool:
+    if request.method.upper() not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return True
+    if request.url.path in CSRF_EXEMPT_PATHS:
+        return True
+    token = request.cookies.get(ACCESS_COOKIE_NAME)
+    if not token:
+        return True
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        expected = payload.get("csrf")
+    except JWTError:
+        return True
+    supplied = request.headers.get("X-CSRF-Token", "")
+    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
 
 
 def require_student(

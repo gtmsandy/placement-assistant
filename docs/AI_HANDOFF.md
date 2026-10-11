@@ -54,7 +54,7 @@ FastAPI
         +----------------------+
         |                      |
         v                      v
-routers/*.py             Static /uploads
+routers/*.py             Protected resume/JD endpoints
         |
         v
 schemas.py
@@ -143,12 +143,12 @@ backend/
 
 - Creates database tables with `Base.metadata.create_all(bind=engine)`.
 - Creates the FastAPI application.
-- Enables CORS for local Vite/frontend development ports.
-- Mounts `backend/uploads` as `/uploads`.
+- Enables exact, environment-driven CORS origins for local development only.
+- Adds CSRF and API security headers; stored uploads are not publicly mounted.
 - Includes students, drives, and applications routers.
 - Provides `/` and `/api/health`.
 
-The upload mount is essential for viewing uploaded PDFs.
+Protected file endpoints are essential for viewing uploaded PDFs.
 
 Conceptually:
 
@@ -156,10 +156,10 @@ Conceptually:
 backend/uploads/jd/example.pdf
         |
         v
-FastAPI StaticFiles
+Authorized FastAPI endpoint
         |
         v
-/ uploads / jd / example.pdf
+/api/drives/{drive_id}/jd
 ```
 
 ---
@@ -371,19 +371,19 @@ Backend:
 ```cmd
 cd backend
 venv\Scripts\activate
-python -m uvicorn main:app --reload
+python -m uvicorn main:app --reload --port 8001
 ```
 
 Backend API:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:8001
 ```
 
 Swagger:
 
 ```text
-http://127.0.0.1:8000/docs
+http://127.0.0.1:8001/docs
 ```
 
 Frontend:

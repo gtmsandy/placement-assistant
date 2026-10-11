@@ -10,8 +10,7 @@ import {
 
 import {
   clearAuth,
-  getAuthToken,
-  getMe,
+  getSession,
 } from '../services/api'
 
 
@@ -41,24 +40,10 @@ function ProtectedRoute({
 
     async function verifyAuthentication() {
 
-      const token =
-        getAuthToken()
-
-
-      if (!token) {
-
-        if (mounted) {
-          setChecking(false)
-        }
-
-        return
-      }
-
-
       try {
 
         const currentUser =
-          await getMe()
+          await getSession()
 
 
         if (!mounted) {

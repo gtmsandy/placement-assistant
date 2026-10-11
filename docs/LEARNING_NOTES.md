@@ -380,33 +380,9 @@ This pattern is common in real applications.
 
 ---
 
-# 17. StaticFiles
+# 17. Protected File Delivery
 
-FastAPI can expose a directory using:
-
-```text
-StaticFiles
-```
-
-The project maps:
-
-```text
-/uploads
-```
-
-to:
-
-```text
-backend/uploads
-```
-
-Therefore a database value such as:
-
-```text
-/uploads/jd/file.pdf
-```
-
-can be served by FastAPI.
+The application deliberately does not expose its upload directory through `StaticFiles`. Database values identify confined files, while authenticated resume and JD endpoints enforce ownership, role, and drive lifecycle before returning content.
 
 ---
 
@@ -506,7 +482,7 @@ filesystem
  ↓
 database path
  ↓
-StaticFiles
+protected FastAPI endpoint
  ↓
 browser
 ```
@@ -530,7 +506,7 @@ Check:
 2. Is jd_filename present?
 3. Does the physical PDF exist?
 4. Is the path correct?
-5. Is FastAPI mounting /uploads?
+5. Is the protected file endpoint authorized and resolving the configured upload root?
 6. Does the direct PDF URL work?
 7. Does frontend construct the URL correctly?
 ```

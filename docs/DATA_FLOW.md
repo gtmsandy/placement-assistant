@@ -27,7 +27,7 @@ Routes/pages
 ## Backend
 
 ```text
-python -m uvicorn main:app --reload
+python -m uvicorn main:app --reload --port 8001
   ↓
 backend/main.py
   ↓
@@ -37,13 +37,13 @@ FastAPI app
   ↓
 CORS configuration
   ↓
-/uploads StaticFiles
+Protected resume and JD API endpoints
   ↓
 students router
 drives router
 applications router
   ↓
-Server on 127.0.0.1:8000
+Server on 127.0.0.1:8001
 ```
 
 ---
@@ -247,11 +247,11 @@ The backend serves the physical file.
 ```text
 Student clicks View
   ↓
-Frontend builds backend file URL
+Frontend requests the protected endpoint
   ↓
-http://127.0.0.1:8000/uploads/jd/<uuid>.pdf
+http://127.0.0.1:8001/api/drives/<drive_id>/jd
   ↓
-FastAPI StaticFiles
+FastAPI authenticates and authorizes the request
   ↓
 backend/uploads/jd/<uuid>.pdf
   ↓
@@ -263,7 +263,7 @@ If this fails, inspect:
 ```text
 1. drive.jd
 2. backend/uploads/jd/
-3. main.py StaticFiles mount
+3. `UPLOAD_ROOT` and protected endpoint authorization
 4. browser URL
 5. backend server
 ```
@@ -409,9 +409,9 @@ Does jd contain /uploads/jd/...?
         ↓
 Does physical PDF exist?
         ↓
-Is /uploads mounted?
+Is the protected JD endpoint authorized and reachable?
         ↓
-Is URL pointing to port 8000?
+Is the development proxy forwarding `/api` to port 8001?
         ↓
 Does browser open URL directly?
 ```

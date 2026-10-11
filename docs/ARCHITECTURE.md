@@ -17,7 +17,7 @@ The application is a local full-stack placement management system.
                            v
                 ┌──────────────────────┐
                 │ FastAPI              │
-                │ 127.0.0.1:8000      │
+                │ 127.0.0.1:8001      │
                 └──────────┬───────────┘
                            │
               ┌────────────┼─────────────┐
@@ -30,18 +30,17 @@ The application is a local full-stack placement management system.
                     SQLAlchemy ORM
                            |
                            v
-                    SQLite database
-                    placement.db
+                    Supabase PostgreSQL
 
 Uploaded PDFs:
 
 backend/uploads/jd/
           |
           v
-FastAPI StaticFiles
+Authorized FastAPI endpoint
           |
           v
-/ uploads / jd / filename.pdf
+/api/drives/{drive_id}/jd
 ```
 
 ---
@@ -140,7 +139,7 @@ Central HTTP service.
 It defines the API base URL:
 
 ```text
-http://127.0.0.1:8000/api
+/api
 ```
 
 and exposes functions for:
@@ -166,8 +165,8 @@ Contains notification-related functionality.
 ```text
 main.py
    |
-   +-- CORS
-   +-- StaticFiles /uploads
+   +-- environment-driven CORS
+   +-- protected resume/JD endpoints
    +-- students.router
    +-- drives.router
    +-- applications.router
@@ -193,16 +192,16 @@ main.py
 
 1. Imports FastAPI.
 2. Imports CORS middleware.
-3. Imports `StaticFiles`.
-4. Creates tables using SQLAlchemy metadata.
+3. Loads persistent upload-directory configuration.
+4. Relies on Alembic for schema management.
 5. Creates FastAPI app.
-6. Configures CORS.
-7. Mounts `/uploads`.
+6. Configures exact environment-driven CORS origins.
+7. Configures CSRF and API security headers; uploads are never publicly mounted.
 8. Includes API routers.
 9. Defines root endpoint.
 10. Defines health endpoint.
 
-The upload mount is required for PDF viewing.
+Protected file endpoints are required for authorized PDF viewing.
 
 ---
 
@@ -405,33 +404,9 @@ This prevents filename collisions and preserves the human-readable filename.
 
 ---
 
-## 13. Static PDF Serving
+## 13. Protected File Serving
 
-The backend mounts:
-
-```text
-/uploads
-```
-
-to:
-
-```text
-backend/uploads
-```
-
-Therefore:
-
-```text
-/uploads/jd/example.pdf
-```
-
-maps to:
-
-```text
-backend/uploads/jd/example.pdf
-```
-
-The frontend can use the backend origin plus that path.
+The backend does not mount the upload directory publicly. Resumes and JDs are returned only by authenticated router endpoints after role, ownership, and drive-lifecycle checks. `UPLOAD_ROOT` selects the filesystem root; production requires an explicit absolute path on persistent storage.
 
 ---
 

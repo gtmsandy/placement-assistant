@@ -8,7 +8,7 @@ import {
 import {
   getDrives,
   createDrive,
-  getAuthToken,
+  hasAuthenticatedSession,
 } from '../services/api'
 
 
@@ -270,7 +270,7 @@ export function PlacementProvider({
   */
   useEffect(() => {
     const loadDrives = () => {
-      if (!getAuthToken()) {
+      if (!hasAuthenticatedSession()) {
         setDrives([])
         setError(null)
         setLoading(false)

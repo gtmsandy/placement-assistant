@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Callable
 
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session

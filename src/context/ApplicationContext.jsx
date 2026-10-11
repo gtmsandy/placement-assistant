@@ -9,7 +9,7 @@ import {
   getApplications,
   getStoredUser,
   getAuthHeaders,
-  getAuthToken,
+  hasAuthenticatedSession,
   API_BASE_URL,
 } from '../services/api'
 
@@ -45,7 +45,7 @@ export function ApplicationProvider({
         setLoading(true)
         setError(null)
 
-        if (!getAuthToken()) {
+        if (!hasAuthenticatedSession()) {
           if (!cancelled) {
             setApplications([])
           }

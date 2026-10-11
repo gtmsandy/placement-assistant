@@ -217,18 +217,12 @@ export function StudentProvider({
         setError(null)
 
 
-        const token =
-          localStorage.getItem(
-            'access_token'
-          )
-
-
         /*
           Do not attempt to load a student
           before authentication.
         */
 
-        if (!token) {
+        if (!getStoredUser()) {
 
           setStudent(
             initialStudent

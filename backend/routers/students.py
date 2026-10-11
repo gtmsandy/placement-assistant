@@ -19,6 +19,7 @@ from routers.auth import require_admin
 from schemas import StudentCreate
 from schemas import StudentProfileUpdate
 from schemas import StudentResponse
+from storage_config import RESUME_DIRECTORY
 from upload_security import MAX_RESUME_SIZE
 from upload_security import RESUME_MIME_TYPES
 from upload_security import generate_safe_upload_path
@@ -36,8 +37,6 @@ router = APIRouter(
     tags=["Students"],
 )
 
-
-RESUME_DIRECTORY = "uploads/resumes"
 
 os.makedirs(
     RESUME_DIRECTORY,

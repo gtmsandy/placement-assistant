@@ -18,7 +18,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-os.environ.setdefault("JWT_SECRET_KEY", "registration-access-test-secret")
+os.environ.setdefault("JWT_SECRET_KEY", "registration-access-test-secret-at-least-32-bytes")
 
 from database import Base  # noqa: E402
 from models import OtpChallenge, Student, User  # noqa: E402
@@ -71,7 +71,7 @@ class StudentRegistrationTests(unittest.TestCase):
         cls.secrets = RecoverySecrets(
             otp_hash="registration-otp-test-secret",
             identifier_hash="registration-identifier-test-secret",
-            reset_token="registration-token-test-secret",
+            reset_token="registration-token-test-secret-at-least-32-bytes",
         )
 
     @classmethod

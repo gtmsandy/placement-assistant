@@ -375,7 +375,7 @@ Responsibilities:
 FastAPI app
 CORS
 database table creation
-StaticFiles /uploads
+Protected resume/JD endpoints (no public upload mount)
 router registration
 root endpoint
 health endpoint
@@ -541,7 +541,7 @@ uploads/jd
     ↓
 jd + jd_filename
     ↓
-main.py StaticFiles
+protected file endpoint
     ↓
 OpportunityDetails.jsx
 ```

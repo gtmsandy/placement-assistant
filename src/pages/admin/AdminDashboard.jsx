@@ -367,9 +367,17 @@ function AdminDashboard() {
             </button>
 
             <button
-              onClick={() => {
-                logoutUser()
-                navigate('/login', { replace: true })
+              onClick={async () => {
+                try {
+                  await logoutUser()
+                } catch (error) {
+                  console.error(
+                    'Server-side logout failed:',
+                    error
+                  )
+                } finally {
+                  navigate('/login', { replace: true })
+                }
               }}
               className="w-full rounded-lg border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 sm:w-auto"
             >
