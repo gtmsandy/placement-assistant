@@ -110,3 +110,8 @@ htmlcov/
 # =========================
 
 backend/create_test_user.py
+# =========================
+# Vercel Local State
+# =========================
+.vercel/
+backend/.vercel/
