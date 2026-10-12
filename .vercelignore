@@ -1,8 +1,14 @@
 .env*
+.codex/
 .vercel/
 backend/.vercel/
 backend/venv/
 backend/venv-py314-backup/
+backend/*.db
+backend/create_test_user.py
+backend/migrate_sqlite_to_postgres.py
+backend/seed_browser_demo.py
+backend/tests/
 **/__pycache__/
 node_modules/
 blob-signer/node_modules/
