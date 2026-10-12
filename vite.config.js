@@ -20,6 +20,12 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
 
+      workbox: {
+        navigateFallbackDenylist: [
+          /^\/api(?:\/|$)/,
+        ],
+      },
+
       manifest: {
         name: 'Campus Placement Assistant',
         short_name: 'Placement Assistant',
