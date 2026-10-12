@@ -14,7 +14,18 @@
     "backend": {
       "root": "backend/",
       "framework": "fastapi",
-      "entrypoint": "main:app"
+      "entrypoint": "main:app",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "blob_signer",
+          "format": "url",
+          "env": "BLOB_SIGNER_INTERNAL_URL"
+        }
+      ]
+    },
+    "blob_signer": {
+      "root": "blob-signer/"
     }
   },
   "rewrites": [
