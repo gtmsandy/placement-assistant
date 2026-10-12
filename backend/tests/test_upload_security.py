@@ -4,7 +4,9 @@ import sys
 import tempfile
 import unittest
 import zipfile
+import os
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from fastapi import UploadFile
@@ -15,6 +17,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from starlette.datastructures import Headers
 from starlette.responses import FileResponse
+from starlette.responses import RedirectResponse
 from starlette.routing import Mount
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -31,6 +34,9 @@ from routers import drives  # noqa: E402
 from routers import students  # noqa: E402
 from routers.auth import get_current_user  # noqa: E402
 from routers.auth import require_admin  # noqa: E402
+from schemas import BlobUploadFinalizeRequest  # noqa: E402
+from schemas import BlobUploadRequest  # noqa: E402
+from schemas import RoundResultBlobFinalizeRequest  # noqa: E402
 from upload_security import MAX_EXCEL_SIZE  # noqa: E402
 from upload_security import MAX_JD_SIZE  # noqa: E402
 from upload_security import MAX_RESUME_SIZE  # noqa: E402
@@ -699,6 +705,250 @@ class UploadSecurityTests(unittest.TestCase):
             public_upload_mounts,
             [],
         )
+
+    def test_resume_blob_upload_is_authorized_and_finalized(self):
+        with patch.object(
+            students,
+            "create_blob_upload_url",
+            return_value="https://blob.example/upload",
+        ):
+            authorization = students.create_resume_upload_url(
+                self.owner_id,
+                BlobUploadRequest(
+                    filename="resume.pdf",
+                    content_type=PDF_MIME,
+                ),
+                self.owner_user,
+                self.db,
+            )
+
+        self.assertTrue(
+            authorization.pathname.startswith(
+                f"resumes/{self.owner_id}/"
+            )
+        )
+
+        with (
+            patch.object(
+                students,
+                "read_private_blob",
+                return_value=PDF_BYTES,
+            ),
+            patch.object(students, "delete_private_blob") as delete_blob,
+        ):
+            result = students.finalize_resume_upload(
+                self.owner_id,
+                BlobUploadFinalizeRequest(
+                    filename="resume.pdf",
+                    content_type=PDF_MIME,
+                    pathname=authorization.pathname,
+                ),
+                self.owner_user,
+                self.db,
+            )
+
+        self.assertEqual(result.resume_url, authorization.pathname)
+        delete_blob.assert_not_called()
+
+    def test_resume_blob_download_redirects_after_authorization(self):
+        self.owner.resume_url = (
+            f"resumes/{self.owner_id}/"
+            "0123456789abcdef0123456789abcdef.pdf"
+        )
+        self.db.commit()
+
+        with patch.object(
+            students,
+            "create_blob_download_url",
+            return_value="https://blob.example/download",
+        ):
+            response = students.download_resume(
+                self.owner_id,
+                self.owner_user,
+                self.db,
+            )
+
+        self.assertIsInstance(response, RedirectResponse)
+
+    def test_resume_blob_is_deleted_when_finalize_metadata_mismatches(self):
+        pathname = (
+            f"resumes/{self.owner_id}/"
+            "0123456789abcdef0123456789abcdef.pdf"
+        )
+        with patch.object(students, "delete_private_blob") as delete_blob:
+            self.assert_http_status(
+                400,
+                lambda: students.finalize_resume_upload(
+                    self.owner_id,
+                    BlobUploadFinalizeRequest(
+                        filename="resume.doc",
+                        content_type="application/msword",
+                        pathname=pathname,
+                    ),
+                    self.owner_user,
+                    self.db,
+                ),
+            )
+
+        delete_blob.assert_called_once_with(
+            kind="resume",
+            pathname=pathname,
+        )
+
+    def test_resume_blob_unexpected_validation_failure_is_sanitized(self):
+        pathname = (
+            f"resumes/{self.owner_id}/"
+            "0123456789abcdef0123456789abcdef.pdf"
+        )
+        with (
+            patch.object(
+                students,
+                "read_private_blob",
+                side_effect=ValueError("private provider detail"),
+            ),
+            patch.object(students, "delete_private_blob") as delete_blob,
+            self.assertLogs(students.logger, level="ERROR"),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                students.finalize_resume_upload(
+                    self.owner_id,
+                    BlobUploadFinalizeRequest(
+                        filename="resume.pdf",
+                        content_type=PDF_MIME,
+                        pathname=pathname,
+                    ),
+                    self.owner_user,
+                    self.db,
+                )
+
+        self.assertEqual(raised.exception.status_code, 500)
+        self.assertNotIn("private provider detail", raised.exception.detail)
+        delete_blob.assert_called_once()
+
+    def test_jd_blob_upload_is_finalized_after_pdf_validation(self):
+        pathname = (
+            f"job-descriptions/{self.drive_id}/"
+            "0123456789abcdef0123456789abcdef.pdf"
+        )
+        with (
+            patch.object(
+                drives,
+                "read_private_blob",
+                return_value=PDF_BYTES,
+            ),
+            patch.object(drives, "delete_private_blob") as delete_blob,
+        ):
+            result = drives.finalize_job_description_upload(
+                self.drive_id,
+                BlobUploadFinalizeRequest(
+                    filename="description.pdf",
+                    content_type=PDF_MIME,
+                    pathname=pathname,
+                ),
+                self.admin,
+                self.db,
+            )
+
+        self.assertEqual(result.jd, pathname)
+        delete_blob.assert_not_called()
+
+    def test_jd_blob_is_deleted_when_finalize_metadata_mismatches(self):
+        pathname = (
+            f"job-descriptions/{self.drive_id}/"
+            "0123456789abcdef0123456789abcdef.pdf"
+        )
+        with patch.object(drives, "delete_private_blob") as delete_blob:
+            self.assert_http_status(
+                400,
+                lambda: drives.finalize_job_description_upload(
+                    self.drive_id,
+                    BlobUploadFinalizeRequest(
+                        filename="description.txt",
+                        content_type="text/plain",
+                        pathname=pathname,
+                    ),
+                    self.admin,
+                    self.db,
+                ),
+            )
+
+        delete_blob.assert_called_once_with(
+            kind="jd",
+            pathname=pathname,
+        )
+
+    def test_jd_blob_unexpected_validation_failure_is_sanitized(self):
+        pathname = (
+            f"job-descriptions/{self.drive_id}/"
+            "0123456789abcdef0123456789abcdef.pdf"
+        )
+        with (
+            patch.object(
+                drives,
+                "read_private_blob",
+                side_effect=ValueError("private provider detail"),
+            ),
+            patch.object(drives, "delete_private_blob") as delete_blob,
+            self.assertLogs(drives.logger, level="ERROR"),
+        ):
+            with self.assertRaises(HTTPException) as raised:
+                drives.finalize_job_description_upload(
+                    self.drive_id,
+                    BlobUploadFinalizeRequest(
+                        filename="description.pdf",
+                        content_type=PDF_MIME,
+                        pathname=pathname,
+                    ),
+                    self.admin,
+                    self.db,
+                )
+
+        self.assertEqual(raised.exception.status_code, 500)
+        self.assertNotIn("private provider detail", raised.exception.detail)
+        delete_blob.assert_called_once()
+
+    def test_excel_blob_is_deleted_after_successful_processing(self):
+        pathname = (
+            f"result-imports/{self.drive_id}/"
+            "0123456789abcdef0123456789abcdef.xlsx"
+        )
+        with (
+            patch.object(
+                drives,
+                "read_private_blob",
+                return_value=workbook_bytes(["UPLOAD001"]),
+            ),
+            patch.object(drives, "delete_private_blob") as delete_blob,
+        ):
+            result = asyncio.run(
+                drives.finalize_round_results_upload(
+                    self.drive_id,
+                    RoundResultBlobFinalizeRequest(
+                        filename="results.xlsx",
+                        content_type=XLSX_MIME,
+                        pathname=pathname,
+                        stage="PPT",
+                    ),
+                    self.admin,
+                    self.db,
+                )
+            )
+
+        self.assertEqual(result["passed_count"], 1)
+        delete_blob.assert_called_once_with(
+            kind="excel",
+            pathname=pathname,
+        )
+
+    def test_production_binding_disables_multipart_resume_upload(self):
+        with patch.dict(
+            os.environ,
+            {"BLOB_SIGNER_INTERNAL_URL": "http://blob-signer.internal"},
+        ):
+            self.assert_http_status(
+                409,
+                lambda: self.upload_resume(),
+            )
 
 
 if __name__ == "__main__":

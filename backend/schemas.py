@@ -342,6 +342,36 @@ class DriveResponse(DriveBase):
     )
 
 
+class BlobUploadRequest(BaseModel):
+    filename: str = Field(
+        min_length=1,
+        max_length=255,
+    )
+    content_type: str = Field(
+        min_length=1,
+        max_length=200,
+    )
+
+
+class BlobUploadFinalizeRequest(BlobUploadRequest):
+    pathname: str = Field(
+        min_length=1,
+        max_length=950,
+    )
+
+
+class RoundResultBlobFinalizeRequest(BlobUploadFinalizeRequest):
+    stage: str = Field(
+        min_length=1,
+        max_length=50,
+    )
+
+
+class BlobUploadAuthorization(BaseModel):
+    pathname: str
+    upload_url: str
+
+
 class ApplicationCreate(BaseModel):
     student_id: int
 

@@ -207,6 +207,93 @@ async function parseResponse(
 }
 
 
+function uploadContentType(file) {
+  if (file.type) {
+    return file.type
+  }
+
+  const extension = file.name
+    ?.split('.')
+    .pop()
+    ?.toLowerCase()
+
+  return {
+    pdf: 'application/pdf',
+    doc: 'application/msword',
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xlsm: 'application/vnd.ms-excel.sheet.macroenabled.12',
+  }[extension] || 'application/octet-stream'
+}
+
+
+async function directPrivateBlobUpload(
+  endpoint,
+  file,
+  finalizeFields = {}
+) {
+  const contentType =
+    uploadContentType(file)
+  const authorizationResponse =
+    await fetch(
+      `${API_BASE_URL}${endpoint}/upload-url`,
+      {
+        method: 'POST',
+        headers: getAuthHeaders({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          filename: file.name,
+          content_type: contentType,
+        }),
+      }
+    )
+  const authorization =
+    await parseResponse(
+      authorizationResponse
+    )
+
+  const uploadResponse =
+    await fetch(
+      authorization.upload_url,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': contentType,
+        },
+        body: file,
+      }
+    )
+
+  if (!uploadResponse.ok) {
+    throw new Error(
+      'Unable to upload the selected file.'
+    )
+  }
+
+  const finalizeResponse =
+    await fetch(
+      `${API_BASE_URL}${endpoint}/finalize`,
+      {
+        method: 'POST',
+        headers: getAuthHeaders({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          filename: file.name,
+          content_type: contentType,
+          pathname: authorization.pathname,
+          ...finalizeFields,
+        }),
+      }
+    )
+
+  return parseResponse(
+    finalizeResponse
+  )
+}
+
+
 async function openProtectedFile(
   endpoint
 ) {
@@ -647,6 +734,13 @@ export async function uploadResume(
     )
   }
 
+  if (import.meta.env.PROD) {
+    return directPrivateBlobUpload(
+      `/api/students/${studentId}/resume`,
+      file
+    )
+  }
+
   const formData =
     new FormData()
 
@@ -842,6 +936,13 @@ export async function uploadJobDescription(
     )
   }
 
+  if (import.meta.env.PROD) {
+    return directPrivateBlobUpload(
+      `/api/drives/${driveId}/jd`,
+      file
+    )
+  }
+
   const formData =
     new FormData()
 
@@ -999,6 +1100,14 @@ export async function uploadRoundResults(
   ) {
     throw new Error(
       `Invalid recruitment round: ${stage}`
+    )
+  }
+
+  if (import.meta.env.PROD) {
+    return directPrivateBlobUpload(
+      `/api/drives/${driveId}/round-results`,
+      file,
+      { stage }
     )
   }
 

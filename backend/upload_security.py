@@ -78,8 +78,22 @@ def validate_extension_and_mime(
     allowed_mime_types,
     invalid_type_message,
 ):
+    return validate_filename_and_mime(
+        file.filename,
+        file.content_type,
+        allowed_mime_types,
+        invalid_type_message,
+    )
+
+
+def validate_filename_and_mime(
+    filename,
+    content_type,
+    allowed_mime_types,
+    invalid_type_message,
+):
     extension = normalized_extension(
-        file.filename
+        filename
     )
 
     if extension not in allowed_mime_types:
@@ -89,7 +103,7 @@ def validate_extension_and_mime(
         )
 
     declared_mime = (
-        file.content_type or ""
+        content_type or ""
     ).split(";", 1)[0].strip().lower()
 
     expected_mime_types = {

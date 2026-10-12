@@ -1,0 +1,15 @@
+.env*
+.vercel/
+backend/.vercel/
+backend/venv/
+backend/venv-py314-backup/
+**/__pycache__/
+node_modules/
+blob-signer/node_modules/
+backend/uploads/
+uploads/
+dist/
+dev-dist/
+coverage/
+htmlcov/
+.pytest_cache/

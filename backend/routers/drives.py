@@ -1,6 +1,8 @@
 import logging
 import os
+import tempfile
 from io import BytesIO
+from pathlib import Path
 
 from openpyxl import load_workbook
 
@@ -11,6 +13,8 @@ from fastapi import Form
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
+from starlette.datastructures import Headers
 
 from sqlalchemy.orm import Session
 
@@ -21,16 +25,29 @@ from application_state import next_stage_after_round
 from application_state import normalize_stage
 from application_state import reject_application_for_round
 from database import get_db
+from blob_signer_client import BlobSignerError
+from blob_storage import BlobStorageError
+from blob_storage import create_blob_download_url
+from blob_storage import create_blob_upload_url
+from blob_storage import delete_private_blob
+from blob_storage import read_private_blob
+from blob_uploads import generate_blob_pathname
+from blob_uploads import validate_blob_pathname
 
 from models import Application
 from models import PlacementDrive
 from models import Student
 from models import User
 
+from schemas import BlobUploadAuthorization
+from schemas import BlobUploadFinalizeRequest
+from schemas import BlobUploadRequest
 from schemas import DriveCreate
 from schemas import DriveResponse
 from schemas import DriveUpdate
+from schemas import RoundResultBlobFinalizeRequest
 from storage_config import JD_DIRECTORY
+from storage_config import blob_storage_enabled
 from upload_security import EXCEL_MIME_TYPES
 from upload_security import JD_MIME_TYPES
 from upload_security import MAX_EXCEL_SIZE
@@ -40,6 +57,7 @@ from upload_security import read_upload_with_limit
 from upload_security import stored_upload_path
 from upload_security import validate_excel_content
 from upload_security import validate_extension_and_mime
+from upload_security import validate_filename_and_mime
 from upload_security import validate_pdf_content
 from upload_security import write_upload_with_limit
 
@@ -58,10 +76,24 @@ router = APIRouter(
 
 UPLOAD_DIR = JD_DIRECTORY
 
-os.makedirs(
-    UPLOAD_DIR,
-    exist_ok=True
-)
+if not blob_storage_enabled():
+    os.makedirs(
+        UPLOAD_DIR,
+        exist_ok=True
+    )
+
+
+def _delete_blob_quietly(kind, pathname):
+    try:
+        delete_private_blob(
+            kind=kind,
+            pathname=pathname,
+        )
+    except (BlobSignerError, BlobStorageError):
+        logger.warning(
+            "Unable to remove private upload Blob",
+            exc_info=True,
+        )
 
 
 def normalize_roll_no(value):
@@ -281,6 +313,146 @@ def update_drive(
 
 
 @router.post(
+    "/{drive_id}/jd/upload-url",
+    response_model=BlobUploadAuthorization,
+)
+def create_job_description_upload_url(
+    drive_id: int,
+    request: BlobUploadRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    drive = db.query(PlacementDrive).filter(
+        PlacementDrive.id == drive_id
+    ).first()
+    if not drive:
+        raise HTTPException(status_code=404, detail="Placement drive not found")
+
+    extension = validate_filename_and_mime(
+        request.filename,
+        request.content_type,
+        JD_MIME_TYPES,
+        "Only PDF files are allowed",
+    )
+    pathname = generate_blob_pathname(
+        kind="jd",
+        owner_id=drive_id,
+        extension=extension,
+    )
+    try:
+        upload_url = create_blob_upload_url(
+            kind="jd",
+            pathname=pathname,
+        )
+    except (BlobSignerError, BlobStorageError) as error:
+        logger.exception("Unable to authorize private JD upload")
+        raise HTTPException(
+            status_code=503,
+            detail="File storage is temporarily unavailable.",
+        ) from error
+
+    return BlobUploadAuthorization(
+        pathname=pathname,
+        upload_url=upload_url,
+    )
+
+
+@router.post(
+    "/{drive_id}/jd/finalize",
+    response_model=DriveResponse,
+)
+def finalize_job_description_upload(
+    drive_id: int,
+    request: BlobUploadFinalizeRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    drive = db.query(PlacementDrive).filter(
+        PlacementDrive.id == drive_id
+    ).first()
+    if not drive:
+        raise HTTPException(status_code=404, detail="Placement drive not found")
+
+    stored_extension = validate_blob_pathname(
+        kind="jd",
+        owner_id=drive_id,
+        pathname=request.pathname,
+        allowed_extensions=set(JD_MIME_TYPES),
+    )
+    try:
+        extension = validate_filename_and_mime(
+            request.filename,
+            request.content_type,
+            JD_MIME_TYPES,
+            "Only PDF files are allowed",
+        )
+        if stored_extension != extension:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file metadata does not match its reference.",
+            )
+
+        contents = read_private_blob(
+            kind="jd",
+            pathname=request.pathname,
+            maximum_bytes=MAX_JD_SIZE,
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            validation_path = Path(temporary_directory) / "description.pdf"
+            validation_path.write_bytes(contents)
+            validate_pdf_content(validation_path)
+    except HTTPException:
+        _delete_blob_quietly("jd", request.pathname)
+        raise
+    except (BlobSignerError, BlobStorageError) as error:
+        _delete_blob_quietly("jd", request.pathname)
+        logger.exception("Unable to validate private JD upload")
+        raise HTTPException(
+            status_code=503,
+            detail="File storage is temporarily unavailable.",
+        ) from error
+    except Exception as error:
+        _delete_blob_quietly("jd", request.pathname)
+        logger.exception("Unexpected private JD validation failure")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to upload job description.",
+        ) from error
+
+    old_pathname = drive.jd
+    drive.jd = request.pathname
+    drive.jd_filename = os.path.basename(
+        request.filename.replace("\\", "/")
+    )
+    try:
+        db.commit()
+        db.refresh(drive)
+    except Exception as error:
+        db.rollback()
+        _delete_blob_quietly("jd", request.pathname)
+        logger.exception("Unable to save private JD reference")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to upload job description.",
+        ) from error
+
+    if old_pathname and old_pathname != request.pathname:
+        try:
+            validate_blob_pathname(
+                kind="jd",
+                owner_id=drive_id,
+                pathname=old_pathname,
+                allowed_extensions=set(JD_MIME_TYPES),
+            )
+        except HTTPException:
+            pass
+        else:
+            _delete_blob_quietly("jd", old_pathname)
+
+    return drive
+
+
+@router.post(
     "/{drive_id}/jd",
     response_model=DriveResponse,
 )
@@ -435,6 +607,12 @@ def download_job_description(
     ),
     db: Session = Depends(get_db),
 ):
+    if blob_storage_enabled():
+        raise HTTPException(
+            status_code=409,
+            detail="Use the direct file upload flow.",
+        )
+
     drive = (
         db.query(PlacementDrive)
         .filter(
@@ -472,6 +650,30 @@ def download_job_description(
             ),
         )
 
+    if str(drive.jd or "").startswith("job-descriptions/"):
+        validate_blob_pathname(
+            kind="jd",
+            owner_id=drive_id,
+            pathname=drive.jd,
+            allowed_extensions=set(JD_MIME_TYPES),
+        )
+        try:
+            download_url = create_blob_download_url(
+                kind="jd",
+                pathname=drive.jd,
+            )
+        except (BlobSignerError, BlobStorageError) as error:
+            logger.exception("Unable to authorize private JD download")
+            raise HTTPException(
+                status_code=503,
+                detail="File storage is temporarily unavailable.",
+            ) from error
+
+        return RedirectResponse(
+            url=download_url,
+            status_code=307,
+        )
+
     jd_path = stored_upload_path(
         UPLOAD_DIR,
         drive.jd,
@@ -502,6 +704,112 @@ def download_job_description(
 
 
 @router.post(
+    "/{drive_id}/round-results/upload-url",
+    response_model=BlobUploadAuthorization,
+)
+def create_round_results_upload_url(
+    drive_id: int,
+    request: BlobUploadRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    drive = db.query(PlacementDrive).filter(
+        PlacementDrive.id == drive_id
+    ).first()
+    if not drive:
+        raise HTTPException(status_code=404, detail="Placement drive not found")
+    ensure_drive_allows_result_processing(drive)
+
+    extension = validate_filename_and_mime(
+        request.filename,
+        request.content_type,
+        EXCEL_MIME_TYPES,
+        "Only .xlsx and .xlsm Excel files are allowed",
+    )
+    pathname = generate_blob_pathname(
+        kind="excel",
+        owner_id=drive_id,
+        extension=extension,
+    )
+    try:
+        upload_url = create_blob_upload_url(
+            kind="excel",
+            pathname=pathname,
+        )
+    except (BlobSignerError, BlobStorageError) as error:
+        logger.exception("Unable to authorize private result upload")
+        raise HTTPException(
+            status_code=503,
+            detail="File storage is temporarily unavailable.",
+        ) from error
+
+    return BlobUploadAuthorization(
+        pathname=pathname,
+        upload_url=upload_url,
+    )
+
+
+@router.post(
+    "/{drive_id}/round-results/finalize",
+)
+async def finalize_round_results_upload(
+    drive_id: int,
+    request: RoundResultBlobFinalizeRequest,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    stored_extension = validate_blob_pathname(
+        kind="excel",
+        owner_id=drive_id,
+        pathname=request.pathname,
+        allowed_extensions=set(EXCEL_MIME_TYPES),
+    )
+
+    try:
+        extension = validate_filename_and_mime(
+            request.filename,
+            request.content_type,
+            EXCEL_MIME_TYPES,
+            "Only .xlsx and .xlsm Excel files are allowed",
+        )
+        if stored_extension != extension:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file metadata does not match its reference.",
+            )
+
+        try:
+            contents = read_private_blob(
+                kind="excel",
+                pathname=request.pathname,
+                maximum_bytes=MAX_EXCEL_SIZE,
+            )
+        except (BlobSignerError, BlobStorageError) as error:
+            logger.exception("Unable to read private result upload")
+            raise HTTPException(
+                status_code=503,
+                detail="File storage is temporarily unavailable.",
+            ) from error
+
+        upload = UploadFile(
+            file=BytesIO(contents),
+            filename=request.filename,
+            headers=Headers({
+                "content-type": request.content_type,
+            }),
+        )
+        return await _process_round_results_upload(
+            drive_id=drive_id,
+            stage=request.stage,
+            file=upload,
+            current_user=current_user,
+            db=db,
+        )
+    finally:
+        _delete_blob_quietly("excel", request.pathname)
+
+
+@router.post(
     "/{drive_id}/round-results",
 )
 async def upload_round_results(
@@ -514,6 +822,29 @@ async def upload_round_results(
     db: Session = Depends(
         get_db
     ),
+):
+    if blob_storage_enabled():
+        raise HTTPException(
+            status_code=409,
+            detail="Use the direct file upload flow.",
+        )
+
+    return await _process_round_results_upload(
+        drive_id=drive_id,
+        stage=stage,
+        file=file,
+        current_user=current_user,
+        db=db,
+    )
+
+
+async def _process_round_results_upload(
+    *,
+    drive_id,
+    stage,
+    file,
+    current_user,
+    db,
 ):
     drive = (
         db.query(

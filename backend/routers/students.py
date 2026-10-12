@@ -1,5 +1,7 @@
 import logging
 import os
+import tempfile
+from pathlib import Path
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -7,24 +9,38 @@ from fastapi import File
 from fastapi import HTTPException
 from fastapi import UploadFile
 from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database import get_db
+from blob_signer_client import BlobSignerError
+from blob_storage import BlobStorageError
+from blob_storage import create_blob_download_url
+from blob_storage import create_blob_upload_url
+from blob_storage import delete_private_blob
+from blob_storage import read_private_blob
+from blob_uploads import generate_blob_pathname
+from blob_uploads import validate_blob_pathname
 from models import Student
 from models import User
 from routers.auth import get_current_user
 from routers.auth import require_admin
+from schemas import BlobUploadAuthorization
+from schemas import BlobUploadFinalizeRequest
+from schemas import BlobUploadRequest
 from schemas import StudentCreate
 from schemas import StudentProfileUpdate
 from schemas import StudentResponse
 from storage_config import RESUME_DIRECTORY
+from storage_config import blob_storage_enabled
 from upload_security import MAX_RESUME_SIZE
 from upload_security import RESUME_MIME_TYPES
 from upload_security import generate_safe_upload_path
 from upload_security import stored_upload_path
 from upload_security import validate_extension_and_mime
+from upload_security import validate_filename_and_mime
 from upload_security import validate_resume_content
 from upload_security import write_upload_with_limit
 
@@ -38,10 +54,45 @@ router = APIRouter(
 )
 
 
-os.makedirs(
-    RESUME_DIRECTORY,
-    exist_ok=True
-)
+if not blob_storage_enabled():
+    os.makedirs(
+        RESUME_DIRECTORY,
+        exist_ok=True
+    )
+
+
+def _resume_user_is_authorized(current_user, student_id, action):
+    user_role = current_user.role.lower()
+
+    if user_role == "student" and current_user.student_id != student_id:
+        raise HTTPException(
+            status_code=403,
+            detail=f"You can only {action} your own resume",
+        )
+
+    if user_role not in {"admin", "student"}:
+        raise HTTPException(
+            status_code=403,
+            detail=f"You are not authorized to {action} resumes",
+        )
+
+
+def _delete_resume_blob_quietly(pathname):
+    try:
+        delete_private_blob(
+            kind="resume",
+            pathname=pathname,
+        )
+    except BlobSignerError:
+        logger.warning(
+            "Unable to remove private resume Blob",
+            exc_info=True,
+        )
+    except BlobStorageError:
+        logger.warning(
+            "Unable to remove private resume Blob",
+            exc_info=True,
+        )
 
 
 def _is_mobile_unique_violation(error):
@@ -232,6 +283,150 @@ def update_student(
 
 
 @router.post(
+    "/{student_id}/resume/upload-url",
+    response_model=BlobUploadAuthorization,
+)
+def create_resume_upload_url(
+    student_id: int,
+    request: BlobUploadRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _resume_user_is_authorized(current_user, student_id, "upload")
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    extension = validate_filename_and_mime(
+        request.filename,
+        request.content_type,
+        RESUME_MIME_TYPES,
+        "Only PDF, DOC, and DOCX resumes are allowed",
+    )
+    pathname = generate_blob_pathname(
+        kind="resume",
+        owner_id=student_id,
+        extension=extension,
+    )
+
+    try:
+        upload_url = create_blob_upload_url(
+            kind="resume",
+            pathname=pathname,
+        )
+    except (BlobSignerError, BlobStorageError) as error:
+        logger.exception("Unable to authorize private resume upload")
+        raise HTTPException(
+            status_code=503,
+            detail="File storage is temporarily unavailable.",
+        ) from error
+
+    return BlobUploadAuthorization(
+        pathname=pathname,
+        upload_url=upload_url,
+    )
+
+
+@router.post(
+    "/{student_id}/resume/finalize",
+    response_model=StudentResponse,
+)
+def finalize_resume_upload(
+    student_id: int,
+    request: BlobUploadFinalizeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _resume_user_is_authorized(current_user, student_id, "upload")
+
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    stored_extension = validate_blob_pathname(
+        kind="resume",
+        owner_id=student_id,
+        pathname=request.pathname,
+        allowed_extensions=set(RESUME_MIME_TYPES),
+    )
+    try:
+        extension = validate_filename_and_mime(
+            request.filename,
+            request.content_type,
+            RESUME_MIME_TYPES,
+            "Only PDF, DOC, and DOCX resumes are allowed",
+        )
+        if stored_extension != extension:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file metadata does not match its reference.",
+            )
+
+        contents = read_private_blob(
+            kind="resume",
+            pathname=request.pathname,
+            maximum_bytes=MAX_RESUME_SIZE,
+        )
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            validation_path = (
+                Path(temporary_directory) / f"resume{extension}"
+            )
+            validation_path.write_bytes(contents)
+            validate_resume_content(validation_path, extension)
+    except HTTPException:
+        _delete_resume_blob_quietly(request.pathname)
+        raise
+    except (BlobSignerError, BlobStorageError) as error:
+        _delete_resume_blob_quietly(request.pathname)
+        logger.exception("Unable to validate private resume upload")
+        raise HTTPException(
+            status_code=503,
+            detail="File storage is temporarily unavailable.",
+        ) from error
+    except Exception as error:
+        _delete_resume_blob_quietly(request.pathname)
+        logger.exception("Unexpected private resume validation failure")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to upload resume.",
+        ) from error
+
+    old_pathname = student.resume_url
+    student.resume_filename = os.path.basename(
+        request.filename.replace("\\", "/")
+    )
+    student.resume_url = request.pathname
+
+    try:
+        db.commit()
+        db.refresh(student)
+    except Exception as error:
+        db.rollback()
+        _delete_resume_blob_quietly(request.pathname)
+        logger.exception("Unable to save private resume reference")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to upload resume.",
+        ) from error
+
+    if old_pathname and old_pathname != request.pathname:
+        try:
+            validate_blob_pathname(
+                kind="resume",
+                owner_id=student_id,
+                pathname=old_pathname,
+                allowed_extensions=set(RESUME_MIME_TYPES),
+            )
+        except HTTPException:
+            pass
+        else:
+            _delete_resume_blob_quietly(old_pathname)
+
+    return student
+
+
+@router.post(
     "/{student_id}/resume",
     response_model=StudentResponse,
 )
@@ -243,6 +438,12 @@ async def upload_resume(
     ),
     db: Session = Depends(get_db),
 ):
+    if blob_storage_enabled():
+        raise HTTPException(
+            status_code=409,
+            detail="Use the direct file upload flow.",
+        )
+
     user_role = current_user.role.lower()
 
     if user_role == "student" and (
@@ -443,6 +644,30 @@ def download_resume(
         raise HTTPException(
             status_code=404,
             detail="Student not found",
+        )
+
+    if str(student.resume_url or "").startswith("resumes/"):
+        validate_blob_pathname(
+            kind="resume",
+            owner_id=student_id,
+            pathname=student.resume_url,
+            allowed_extensions=set(RESUME_MIME_TYPES),
+        )
+        try:
+            download_url = create_blob_download_url(
+                kind="resume",
+                pathname=student.resume_url,
+            )
+        except (BlobSignerError, BlobStorageError) as error:
+            logger.exception("Unable to authorize private resume download")
+            raise HTTPException(
+                status_code=503,
+                detail="File storage is temporarily unavailable.",
+            ) from error
+
+        return RedirectResponse(
+            url=download_url,
+            status_code=307,
         )
 
     resume_path = stored_upload_path(

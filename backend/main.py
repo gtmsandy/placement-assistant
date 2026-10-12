@@ -15,17 +15,19 @@ import models
 from routers.auth import csrf_request_is_valid
 from storage_config import JD_DIRECTORY
 from storage_config import RESUME_DIRECTORY
+from storage_config import blob_storage_enabled
 
 
-os.makedirs(
-    RESUME_DIRECTORY,
-    exist_ok=True
-)
+if not blob_storage_enabled():
+    os.makedirs(
+        RESUME_DIRECTORY,
+        exist_ok=True
+    )
 
-os.makedirs(
-    JD_DIRECTORY,
-    exist_ok=True,
-)
+    os.makedirs(
+        JD_DIRECTORY,
+        exist_ok=True,
+    )
 
 
 def configured_cors_origins():
