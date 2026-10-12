@@ -11,6 +11,24 @@ from sqlalchemy.pool import NullPool
 load_dotenv()
 
 
+def normalize_database_url(url):
+    if url.startswith("postgresql://"):
+        return url.replace(
+            "postgresql://",
+            "postgresql+psycopg2://",
+            1,
+        )
+
+    if url.startswith("postgres://"):
+        return url.replace(
+            "postgres://",
+            "postgresql+psycopg2://",
+            1,
+        )
+
+    return url
+
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
@@ -19,12 +37,7 @@ if not DATABASE_URL:
     )
 
 
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace(
-        "postgres://",
-        "postgresql://",
-        1
-    )
+DATABASE_URL = normalize_database_url(DATABASE_URL)
 
 
 engine = create_engine(
