@@ -194,7 +194,7 @@ export function createRequestHandler({
   now?: () => number;
 } = {}) {
   return async function handleRequest(request: Request): Promise<Response> {
-    const url = new URL(request.url);
+    const url = new URL(request.url, 'http://blob-signer.internal');
 
     if (request.method === 'GET' && url.pathname === '/health') {
       return jsonResponse({ status: 'ok' });
@@ -271,9 +271,9 @@ function headersFromNodeRequest(rawHeaders: string[]) {
   return headers;
 }
 
-export function startServer(port = Number(process.env.PORT ?? 3000)) {
+export function createNodeRequestHandler() {
   const handleRequest = createRequestHandler();
-  return createServer(async (request, response) => {
+  return async function nodeRequestHandler(request, response) {
     try {
       const origin = `http://${request.headers.host ?? 'localhost'}`;
       const init: RequestInit & { duplex?: 'half' } = {
@@ -294,8 +294,14 @@ export function startServer(port = Number(process.env.PORT ?? 3000)) {
       response.writeHead(500, { 'content-type': 'application/json' });
       response.end(JSON.stringify({ error: 'Internal service error.' }));
     }
-  }).listen(port);
+  };
 }
+
+export function startServer(port = Number(process.env.PORT ?? 3000)) {
+  return createServer(createNodeRequestHandler()).listen(port);
+}
+
+export default createNodeRequestHandler();
 
 const entrypoint = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
 if (import.meta.url === entrypoint) {

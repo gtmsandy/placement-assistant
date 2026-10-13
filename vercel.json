@@ -25,7 +25,8 @@
       ]
     },
     "blob_signer": {
-      "root": "blob-signer/"
+      "root": "blob-signer/",
+      "entrypoint": "server.ts"
     }
   },
   "rewrites": [

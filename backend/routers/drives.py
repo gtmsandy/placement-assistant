@@ -466,6 +466,12 @@ async def upload_job_description(
         get_db
     ),
 ):
+    if blob_storage_enabled():
+        raise HTTPException(
+            status_code=409,
+            detail="Use the direct file upload flow.",
+        )
+
     drive = (
         db.query(
             PlacementDrive
@@ -607,12 +613,6 @@ def download_job_description(
     ),
     db: Session = Depends(get_db),
 ):
-    if blob_storage_enabled():
-        raise HTTPException(
-            status_code=409,
-            detail="Use the direct file upload flow.",
-        )
-
     drive = (
         db.query(PlacementDrive)
         .filter(

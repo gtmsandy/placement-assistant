@@ -950,6 +950,48 @@ class UploadSecurityTests(unittest.TestCase):
                 lambda: self.upload_resume(),
             )
 
+    def test_production_binding_disables_multipart_jd_upload(self):
+        with patch.dict(
+            os.environ,
+            {"BLOB_SIGNER_INTERNAL_URL": "http://blob-signer.internal"},
+        ):
+            self.assert_http_status(
+                409,
+                lambda: self.upload_jd(),
+            )
+
+    def test_production_binding_allows_private_jd_download(self):
+        pathname = (
+            f"job-descriptions/{self.drive_id}/"
+            "0123456789abcdef0123456789abcdef.pdf"
+        )
+        self.drive.jd = pathname
+        self.drive.jd_filename = "jd.pdf"
+        self.db.commit()
+
+        with (
+            patch.dict(
+                os.environ,
+                {"BLOB_SIGNER_INTERNAL_URL": "http://blob-signer.internal"},
+            ),
+            patch.object(
+                drives,
+                "create_blob_download_url",
+                return_value="https://example.test/private-jd",
+            ) as create_download_url,
+        ):
+            response = drives.download_job_description(
+                self.drive_id,
+                self.admin,
+                self.db,
+            )
+
+        self.assertEqual(response.status_code, 307)
+        create_download_url.assert_called_once_with(
+            kind="jd",
+            pathname=pathname,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

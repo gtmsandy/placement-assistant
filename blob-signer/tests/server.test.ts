@@ -1,9 +1,33 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import test from 'node:test';
 
-import { createRequestHandler } from '../server.ts';
+import handler, { createRequestHandler } from '../server.ts';
 
 const FIXED_NOW = Date.parse('2026-01-01T00:00:00.000Z');
+
+test('default export is a Vercel-compatible Node request handler', async () => {
+  assert.equal(typeof handler, 'function');
+  const server = createServer(handler);
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = server.address();
+    assert(address && typeof address !== 'string');
+    const response = await fetch(`http://127.0.0.1:${address.port}/health`);
+    assert.equal(response.status, 200);
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test('request handler accepts relative request URLs', async () => {
+  const request = new Request('http://blob-signer/health');
+  Object.defineProperty(request, 'url', { value: '/health' });
+  const response = await createRequestHandler()(request);
+  assert.equal(response.status, 200);
+});
 
 function createHarness() {
   const issued: Record<string, unknown>[] = [];
